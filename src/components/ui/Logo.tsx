@@ -1,0 +1,34 @@
+import React from 'react';
+import Svg, { Path, Circle, G, Defs, Filter, FeFlood, FeColorMatrix, FeOffset, FeGaussianBlur, FeComposite, FeBlend, LinearGradient, Stop } from 'react-native-svg';
+
+export default function Logo({ width = 156, height = 36 }: { width?: number; height?: number }) {
+  return (
+    <Svg width={width} height={height} viewBox="0 0 234 54" fill="none">
+      <Path d="M89.282 49.3468C103.064 49.3468 108.566 43.0049 108.566 35.9526C108.566 29.9992 105.071 25.2759 95.3645 23.7224L83.1994 21.7817C79.5762 21.1341 78.1518 20.2283 78.1518 17.705C78.1518 14.9225 80.2866 13.5643 87.275 13.5643C95.8808 13.5643 98.0168 15.3108 98.0168 19.4527V20.3585H107.788V19.9701C107.788 10.8457 101.576 4.69922 88.2459 4.69922C73.6867 4.69922 68.3809 11.5585 68.3809 18.0934C68.3809 25.1468 72.975 29.0294 80.7401 30.2585L92.9052 32.0061C97.3703 32.7829 98.8587 33.7526 98.8587 36.4061C98.8587 39.3177 97.047 40.4828 89.282 40.4828C80.482 40.4828 78.4762 38.8654 78.4762 34.8538V33.6887H68.7704V34.077C68.7704 44.1712 76.1471 49.3479 89.2831 49.3479L89.282 49.3468Z" fill="#50D1AA"/>
+      <Path d="M183.938 48.6963V5.3418H174.232V48.6963H183.938Z" fill="#50D1AA"/>
+      <Path d="M211.248 49.3463C224.773 49.3463 233.378 42.6172 233.378 31.6161V30.6452H222.573V31.6161C222.573 37.3103 219.338 40.0277 211.442 40.0277C201.93 40.0277 198.372 36.6626 198.372 27.0208C198.372 17.379 201.931 14.0139 211.442 14.0139C219.337 14.0139 222.573 16.7313 222.573 22.4255V23.3964H233.378V22.4255C233.378 11.4255 224.707 4.69531 211.248 4.69531C196.947 4.69531 188.082 13.4953 188.082 27.0197C188.082 40.544 196.947 49.344 211.248 49.344V49.3463Z" fill="#50D1AA"/>
+      <Path d="M138.423 4.87988V39.8945C143.052 39.9014 148.397 39.8872 149.148 39.8477C156.475 39.4593 158.791 36.6738 158.791 29.8662V5.3418H168.497V30.5771C168.497 41.5394 162.193 48.4905 149.637 49.2695C148.073 49.3666 132.756 49.3687 131.192 49.2773C118.596 48.5394 112.188 41.5782 112.188 30.5771V5.3418H121.894V29.8662C121.894 35.7022 123.636 38.579 128.72 39.5273V4.87988H138.423Z" fill="#50D1AA"/>
+      <Circle cx="27" cy="27" r="27" fill="url(#paint0_linear_5167_24714)"/>
+      <G filter="url(#filter0_d_5167_24714)">
+        <Path d="M31.8695 40.0206C37.8903 39.6023 40.9131 35.8703 40.9131 29.9844V16.4346H36.2587V29.6023C36.2587 33.2576 35.1485 34.7535 31.6356 34.962C31.0134 34.9988 23.7914 34.9988 23.1698 34.9602C19.6979 34.7455 18.5669 33.249 18.5669 29.6023V16.4346H13.9131V29.9844C13.9131 35.8912 16.9857 39.6287 23.0257 40.0248C23.7755 40.0739 31.1196 40.0727 31.8695 40.0206Z" fill="white"/>
+        <Path d="M27.0028 39.152V16.4346H22.0938V39.152H27.0028Z" fill="white"/>
+      </G>
+      <Defs>
+        <Filter id="filter0_d_5167_24714" x="9.91309" y="16.4346" width="35" height="31.626" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+          <FeFlood floodOpacity="0" result="BackgroundImageFix"/>
+          <FeColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+          <FeOffset dy="4"/>
+          <FeGaussianBlur stdDeviation="2"/>
+          <FeComposite in2="hardAlpha" operator="out"/>
+          <FeColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+          <FeBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_5167_24714"/>
+          <FeBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_5167_24714" result="shape"/>
+        </Filter>
+        <LinearGradient id="paint0_linear_5167_24714" x1="-9.96923" y1="-2.21538" x2="46.1538" y2="59.8154" gradientUnits="userSpaceOnUse">
+          <Stop offset="0.237154" stopColor="#3EC8AC"/>
+          <Stop offset="1" stopColor="#557AD9"/>
+        </LinearGradient>
+      </Defs>
+    </Svg>
+  );
+}
