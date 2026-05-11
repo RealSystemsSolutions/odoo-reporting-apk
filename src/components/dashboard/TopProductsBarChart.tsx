@@ -20,7 +20,7 @@ const BAR_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
 
 export default function TopProductsBarChart({
   data,
-  title = 'Top Productos / Servicios',
+  title = 'Top Products / Services',
 }: Props) {
   const { width, contentPadding, isTablet, chartColumns } = useResponsive();
   const availableSpace = width - contentPadding * 2; // Always full width in layout
@@ -32,14 +32,14 @@ export default function TopProductsBarChart({
     x: p.name.length > 20 ? p.name.slice(0, 20) + '…' : p.name,
     y: p.qty,
     fill: BAR_COLORS[i % BAR_COLORS.length],
-    label: `${p.qty} uds.`,
+    label: `${p.qty} units`,
   }));
 
   if (!data || data.length === 0) {
     return (
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, minHeight: 240, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>No hay datos disponibles</Text>
+        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>No data available</Text>
       </View>
     );
   }

@@ -76,15 +76,15 @@ export default function DashboardScreen() {
         <DashboardHeader onRefresh={handleRefresh} />
 
         {/* ── KPIs ─────────────────────────────────────────────────────────── */}
-        <SectionTitle>Indicadores Clave</SectionTitle>
+        <SectionTitle>Key Performance Indicators</SectionTitle>
         {isLoadingDashboard && !dashboardData ? (
-          <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 16 }}>Cargando datos...</Text>
+          <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 16 }}>Loading data...</Text>
         ) : (
           <KpiCardGrid kpis={dashboardData?.kpis ?? []} />
         )}
 
         {/* ── Charts row (responsive: 1 col on phone, 2 cols on tablet) ────── */}
-        <SectionTitle>Análisis de Ventas</SectionTitle>
+        <SectionTitle>Sales Analysis</SectionTitle>
 
         {chartColumns === 2 ? (
           // Tablet: line + donut side by side
@@ -105,11 +105,11 @@ export default function DashboardScreen() {
         )}
 
         {/* ── Bar chart (always full row) ───────────────────────────────────── */}
-        <SectionTitle>Productos Destacados</SectionTitle>
+        <SectionTitle>Top Products</SectionTitle>
         <TopProductsBarChart data={dashboardData?.topProducts ?? []} />
 
         {/* ── Recent Transactions ────────────────────────────────────────────── */}
-        <SectionTitle>Últimos Movimientos</SectionTitle>
+        <SectionTitle>Recent Movements</SectionTitle>
         <RecentTransactionsList transactions={dashboardData?.recentTransactions ?? []} />
       </ScrollView>
     </View>

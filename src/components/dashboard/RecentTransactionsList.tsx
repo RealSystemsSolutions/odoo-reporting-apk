@@ -13,10 +13,10 @@ const STATE_CONFIG: Record<
   TransactionState,
   { label: string; color: string; icon: React.ComponentProps<typeof Ionicons>['name'] }
 > = {
-  paid: { label: 'Pagado', color: '#10B981', icon: 'checkmark-circle' },
-  pending: { label: 'Pendiente', color: '#F59E0B', icon: 'time' },
-  overdue: { label: 'Vencida', color: '#EF4444', icon: 'alert-circle' },
-  draft: { label: 'Borrador', color: '#6B7280', icon: 'document-text-outline' },
+  paid: { label: 'Paid', color: '#10B981', icon: 'checkmark-circle' },
+  pending: { label: 'Pending', color: '#F59E0B', icon: 'time' },
+  overdue: { label: 'Overdue', color: '#EF4444', icon: 'alert-circle' },
+  draft: { label: 'Draft', color: '#6B7280', icon: 'document-text-outline' },
 };
 
 // ─── Row component (memoized for FlatList performance) ────────────────────────
@@ -45,7 +45,7 @@ const TransactionRow = React.memo(function TransactionRow({ item }: RowProps) {
 
       <View style={styles.rightCol}>
         <Text style={[styles.amount, { color: colors.textPrimary }]}>
-          ${item.amount.toLocaleString('es')}
+          ${item.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
         </Text>
         <View style={[styles.stateBadge, { borderColor: cfg.color }]}>
           <Text style={[styles.stateText, { color: cfg.color }]}>{cfg.label}</Text>
@@ -74,7 +74,7 @@ export default function RecentTransactionsList({ transactions }: Props) {
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Últimos Movimientos</Text>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Recent Transactions</Text>
       <FlatList
         data={transactions}
         keyExtractor={keyExtractor}

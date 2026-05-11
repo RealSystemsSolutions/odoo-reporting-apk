@@ -4,6 +4,8 @@
     "strict": true,
     "baseUrl": ".",
     "jsx": "react-native",
+    "lib": ["es2015", "dom"],
+    "target": "es2015",
     "paths": {
       "@/*": [
         "src/*"

@@ -41,6 +41,9 @@ export default function OrderDetailsScreen() {
           state: order.state,
           amount_total: order.amount_total,
           date_order: order.date_order,
+          pos_receipt_number: order.pos_receipt_number,
+          pos_order_type: order.pos_order_type,
+          pos_table_id: order.pos_table_id,
         });
 
         if (order.order_line && order.order_line.length > 0) {
@@ -63,11 +66,15 @@ export default function OrderDetailsScreen() {
     setFormData(prev => ({ ...prev, partner_id: [client.id, client.name] }));
   };
 
-  const handleProductSelect = (product: OdooProduct) => {
+  const handleProductSelect = (product: OdooProduct & { product_variant_id?: false | [number, string] | number[] }) => {
+    const variantId = product.product_variant_id && Array.isArray(product.product_variant_id) 
+      ? product.product_variant_id[0] 
+      : product.id;
+      
     setLines(prev => [
       ...prev,
       {
-        product_id: [product.id, product.name],
+        product_id: [variantId, product.name],
         name: product.name,
         product_uom_qty: 1,
         price_unit: product.list_price,
@@ -143,6 +150,9 @@ export default function OrderDetailsScreen() {
     const submitData: any = {
       partner_id: formData.partner_id[0],
       order_line: orderLineCommands,
+      pos_receipt_number: formData.pos_receipt_number,
+      pos_order_type: formData.pos_order_type,
+      pos_table_id: formData.pos_table_id,
     };
 
     let success = false;
@@ -247,8 +257,10 @@ export default function OrderDetailsScreen() {
               </Text>
             </Text>
             {formData.date_order && (
-              <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>
-                Fecha: {formData.date_order}
+              <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 4 }}>
+                <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} /> {formData.date_order.substring(0, 10)}
+                <Text>  </Text>
+                <Ionicons name="time-outline" size={12} color={colors.textSecondary} /> {formData.date_order.substring(11, 16)}
               </Text>
             )}
           </View>
@@ -270,6 +282,48 @@ export default function OrderDetailsScreen() {
             </View>
             {!readOnly && <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />}
           </TouchableOpacity>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Información POS</Text>
+          
+          <View style={{ gap: 12 }}>
+            <View>
+              <Text style={{ color: colors.textSecondary, marginBottom: 4, fontSize: 13 }}>Número de Recibo</Text>
+              <TextInput
+                style={[styles.textInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.background }]}
+                value={formData.pos_receipt_number || ''}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, pos_receipt_number: text }))}
+                placeholder="Ej. TICKET-123"
+                placeholderTextColor={colors.textSecondary}
+                editable={!readOnly}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 4, fontSize: 13 }}>Tipo de Orden</Text>
+                <TextInput
+                  style={[styles.textInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.background }]}
+                  value={formData.pos_order_type || ''}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, pos_order_type: text }))}
+                  placeholder="Ej. Para llevar"
+                  placeholderTextColor={colors.textSecondary}
+                  editable={!readOnly}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.textSecondary, marginBottom: 4, fontSize: 13 }}>Mesa</Text>
+                <TextInput
+                  style={[styles.textInput, { color: colors.textPrimary, borderColor: colors.cardBorder, backgroundColor: colors.background }]}
+                  value={formData.pos_table_id || ''}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, pos_table_id: text }))}
+                  placeholder="Ej. Mesa 4"
+                  placeholderTextColor={colors.textSecondary}
+                  editable={!readOnly}
+                />
+              </View>
+            </View>
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
@@ -441,6 +495,13 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
   },
   linesHeader: {
     flexDirection: 'row',

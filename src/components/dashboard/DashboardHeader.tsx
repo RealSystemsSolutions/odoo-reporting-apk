@@ -11,9 +11,10 @@ interface Props {
 }
 
 const PERIODS: { key: ReportingPeriod; label: string }[] = [
-  { key: 'today', label: 'Hoy' },
-  { key: 'week', label: 'Semana' },
-  { key: 'month', label: 'Mes' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'Week' },
+  { key: 'month', label: 'Month' },
 ];
 
 export default function DashboardHeader({ onRefresh }: Props) {
@@ -21,31 +22,30 @@ export default function DashboardHeader({ onRefresh }: Props) {
   const period = useAppStore((s) => s.period);
   const setPeriod = useAppStore((s) => s.setPeriod);
   const { colors, themeName, toggleTheme } = useTheme();
-  const greeting = getGreeting();
-  const firstName = user?.name?.split(' ')[0] ?? 'Usuario';
+  const greeting = getGreeting();
+  const firstName = user?.name?.split(' ')[0] ?? 'User';
 
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={{ flex: 1 }}>
-          <Logo width={130} height={30} />
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }}>
-            <Text style={[styles.greeting, { color: colors.textSecondary }]}>{greeting}, </Text>
-            <Text style={[styles.name, { color: colors.textPrimary }]}>{firstName} 👋</Text>
-          </View>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+          <Logo width={110} height={25} />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textSecondary, textTransform: 'capitalize', marginLeft: 'auto', marginRight: 16 }}>
+            {user?.tenant?.db || ''}
+          </Text>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={[styles.refreshBtn, { backgroundColor: colors.primaryLight, borderColor: 'rgba(59,130,246,0.25)' }]}
             onPress={toggleTheme}
-            accessibilityLabel="Cambiar tema"
+            accessibilityLabel="Change theme"
           >
             <Ionicons name={themeName === 'light' ? 'moon-outline' : 'sunny-outline'} size={20} color={colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.refreshBtn, { backgroundColor: colors.primaryLight, borderColor: 'rgba(59,130,246,0.25)' }]}
             onPress={onRefresh}
-            accessibilityLabel="Actualizar datos"
+            accessibilityLabel="Refresh data"
           >
             <Ionicons name="refresh-outline" size={20} color={colors.primary} />
           </TouchableOpacity>
@@ -64,7 +64,7 @@ export default function DashboardHeader({ onRefresh }: Props) {
             ]}
             onPress={() => setPeriod(p.key)}
             accessibilityRole="button"
-            accessibilityLabel={`Ver datos de ${p.label}`}
+            accessibilityLabel={`View data for ${p.label}`}
           >
             <Text style={[
               styles.chipText,
@@ -82,9 +82,9 @@ export default function DashboardHeader({ onRefresh }: Props) {
 
 function getGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Buenos días';
-  if (h < 18) return 'Buenas tardes';
-  return 'Buenas noches';
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
 }
 
 const styles = StyleSheet.create({

@@ -8,9 +8,18 @@ interface OrdersState {
   error: string | null;
   searchQuery: string;
   hasMore: boolean;
-  page: number;
+  orderGroups: any[];
+  currentGroupIndex: number;
+  // Date range filters
+  dateFrom: string;
+  dateTo: string;
+  stateFilter: string; // 'all' | 'draft' | 'sent' | 'sale' | 'done' | 'cancel'
 
   setSearchQuery: (query: string) => void;
+  setDateFrom: (date: string) => void;
+  setDateTo: (date: string) => void;
+  setStateFilter: (state: string) => void;
+  clearFilters: () => void;
   fetchOrders: (reset?: boolean) => Promise<void>;
   createOrder: (data: Partial<OdooOrder>) => Promise<number | false>;
   updateOrder: (id: number, data: Partial<OdooOrder>) => Promise<boolean>;
@@ -27,38 +36,66 @@ export const useOrdersStore = create<OrdersState>((set, get) => ({
   error: null,
   searchQuery: '',
   hasMore: true,
-  page: 0,
+  orderGroups: [],
+  currentGroupIndex: 0,
+  dateFrom: '',
+  dateTo: '',
+  stateFilter: 'all',
 
   setSearchQuery: (query) => {
-    set({ searchQuery: query });
-    // Trigger search with debounce in component
+    set({ searchQuery: query, currentGroupIndex: 0, orderGroups: [] });
+  },
+
+  setDateFrom: (date) => {
+    set({ dateFrom: date, currentGroupIndex: 0, orderGroups: [] });
+  },
+
+  setDateTo: (date) => {
+    set({ dateTo: date, currentGroupIndex: 0, orderGroups: [] });
+  },
+
+  setStateFilter: (state) => {
+    set({ stateFilter: state, currentGroupIndex: 0, orderGroups: [] });
+  },
+
+  clearFilters: () => {
+    set({ dateFrom: '', dateTo: '', stateFilter: 'all', searchQuery: '', currentGroupIndex: 0, orderGroups: [] });
   },
 
   fetchOrders: async (reset = false) => {
-    const { searchQuery, page, orders, isLoading, hasMore } = get();
+    const { searchQuery, dateFrom, dateTo, stateFilter, orderGroups, currentGroupIndex, orders, isLoading, hasMore } = get();
 
     if (isLoading) return;
     if (!reset && !hasMore) return;
 
     set({ isLoading: true, error: null });
 
-    const currentPage = reset ? 0 : page;
-
     try {
-      const newOrders = await OdooOrderService.getOrders(
-        LIMIT,
-        currentPage * LIMIT,
-        searchQuery
-      );
+      let groups = orderGroups;
+      let nextIndex = currentGroupIndex;
+
+      if (reset) {
+        groups = await OdooOrderService.getOrderGroups(searchQuery, dateFrom, dateTo, stateFilter);
+        nextIndex = 0;
+        set({ orderGroups: groups });
+      }
+
+      if (groups.length === 0 || nextIndex >= groups.length) {
+        set({ orders: reset ? [] : orders, hasMore: false, isLoading: false });
+        return;
+      }
+
+      const groupDomain = groups[nextIndex].__domain;
+      const newOrders = await OdooOrderService.getOrdersByDomain(groupDomain);
 
       set({
         orders: reset ? newOrders : [...orders, ...newOrders],
-        page: currentPage + 1,
-        hasMore: newOrders.length === LIMIT,
+        currentGroupIndex: nextIndex + 1,
+        hasMore: nextIndex + 1 < groups.length,
         isLoading: false,
       });
     } catch (err: any) {
-      set({ error: err.message || 'Error al obtener órdenes', isLoading: false });
+      set({ error: err.message || 'Error fetching orders', isLoading: false });
     }
   },
 

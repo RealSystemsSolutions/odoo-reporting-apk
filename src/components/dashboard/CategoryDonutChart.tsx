@@ -12,7 +12,7 @@ interface Props {
 
 export default function CategoryDonutChart({
   data,
-  title = 'Distribución por Categoría',
+  title = 'Distribution by Category',
 }: Props) {
   const { width, contentPadding, isTablet, chartColumns } = useResponsive();
   const availableSpace = chartColumns === 2 ? (width - contentPadding * 2 - 16) / 2 : width - contentPadding * 2;
@@ -32,7 +32,7 @@ export default function CategoryDonutChart({
     return (
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, minHeight: 220, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>No hay datos disponibles</Text>
+        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>No data available</Text>
       </View>
     );
   }

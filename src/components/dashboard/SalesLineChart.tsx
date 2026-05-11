@@ -10,7 +10,7 @@ interface Props {
   title?: string;
 }
 
-export default function SalesLineChart({ data, title = 'Evolución de Ventas' }: Props) {
+export default function SalesLineChart({ data, title = 'Sales Evolution' }: Props) {
   const { width, contentPadding, isTablet, chartColumns } = useResponsive();
   const availableSpace = chartColumns === 2 ? (width - contentPadding * 2 - 16) / 2 : width - contentPadding * 2;
   const chartWidth = Math.max(availableSpace - 32, 150);
@@ -35,7 +35,7 @@ export default function SalesLineChart({ data, title = 'Evolución de Ventas' }:
     return (
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder, minHeight: 200, maxHeight: 350, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>No hay datos disponibles</Text>
+        <Text style={{ color: colors.textSecondary, marginTop: 16 }}>No data available</Text>
       </View>
     );
   }

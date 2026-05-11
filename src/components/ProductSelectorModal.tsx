@@ -50,7 +50,7 @@ export default function ProductSelectorModal({ visible, onClose, onSelect }: Pro
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Seleccionar Producto</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Select Product</Text>
           <View style={{ width: 32 }} />
         </View>
 
@@ -59,7 +59,7 @@ export default function ProductSelectorModal({ visible, onClose, onSelect }: Pro
             <Ionicons name="search" size={20} color={colors.textSecondary} />
             <TextInput
               style={[styles.input, { color: colors.textPrimary, fontFamily: 'Montserrat_400Regular' }]}
-              placeholder="Buscar producto..."
+              placeholder="Search product..."
               placeholderTextColor={colors.textSecondary}
               value={search}
               onChangeText={setSearch}
@@ -90,7 +90,7 @@ export default function ProductSelectorModal({ visible, onClose, onSelect }: Pro
               </TouchableOpacity>
             )}
             ListEmptyComponent={
-              <Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary }}>No se encontraron productos</Text>
+              <Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary }}>No products found</Text>
             }
           />
         )}

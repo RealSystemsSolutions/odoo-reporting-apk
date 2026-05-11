@@ -50,7 +50,7 @@ export default function ClientSelectorModal({ visible, onClose, onSelect }: Clie
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Seleccionar Cliente</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Select Customer</Text>
           <View style={{ width: 32 }} />
         </View>
 
@@ -59,7 +59,7 @@ export default function ClientSelectorModal({ visible, onClose, onSelect }: Clie
             <Ionicons name="search" size={20} color={colors.textSecondary} />
             <TextInput
               style={[styles.input, { color: colors.textPrimary, fontFamily: 'Montserrat_400Regular' }]}
-              placeholder="Buscar cliente..."
+              placeholder="Search customer..."
               placeholderTextColor={colors.textSecondary}
               value={search}
               onChangeText={setSearch}
@@ -91,7 +91,7 @@ export default function ClientSelectorModal({ visible, onClose, onSelect }: Clie
               </TouchableOpacity>
             )}
             ListEmptyComponent={
-              <Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary }}>No se encontraron clientes</Text>
+              <Text style={{ textAlign: 'center', marginTop: 20, color: colors.textSecondary }}>No customers found</Text>
             }
           />
         )}

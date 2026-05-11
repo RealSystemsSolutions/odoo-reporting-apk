@@ -7,12 +7,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { useProductsStore } from '@/store/products.store';
+import { useAppStore } from '@/store/app.store';
 import { OdooProduct } from '@/types/odoo.types';
+import ScannerModal from '@/components/ScannerModal';
 
 export default function ProductsScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const router = useRouter();
+  const { user } = useAppStore();
+  const [isScannerVisible, setIsScannerVisible] = React.useState(false);
 
   const {
     products,
@@ -38,10 +42,10 @@ export default function ProductsScreen() {
     }
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = (barcode?: string) => {
     router.push({
       pathname: '/product-details' as any,
-      params: { id: 'new' },
+      params: { id: 'new', barcode: barcode || '' },
     });
   };
 
@@ -90,7 +94,7 @@ export default function ProductsScreen() {
           </View>
           <View style={styles.cardFooter}>
             <View style={styles.qtyBadge}>
-              <Text style={styles.qtyText}>{item.qty_available} uds.</Text>
+              <Text style={styles.qtyText}>{item.qty_available} units</Text>
             </View>
           </View>
         </View>
@@ -101,22 +105,28 @@ export default function ProductsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12, paddingHorizontal: 16 }]}>
-        <View style={{ marginBottom: 12 }}>
-          <Logo width={130} height={30} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Logo width={110} height={25} />
+          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textSecondary, textTransform: 'capitalize' }}>
+            {user?.tenant?.db || ''}
+          </Text>
         </View>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Productos</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>Products</Text>
         <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder="Buscar por nombre o código..."
+            placeholder="Search by name or code..."
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
           />
+          <TouchableOpacity onPress={() => setIsScannerVisible(true)} style={styles.scannerIcon}>
+            <Ionicons name="barcode-outline" size={22} color={colors.primary} />
+          </TouchableOpacity>
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={{ marginLeft: 8 }}>
               <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
@@ -158,8 +168,17 @@ export default function ProductsScreen() {
             <View style={styles.emptyContainer}>
               <Ionicons name="cube-outline" size={64} color={colors.cardBorder} />
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                No se encontraron productos
+                {searchQuery ? `No products found for "${searchQuery}"` : 'No products found'}
               </Text>
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.createBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => handleAddProduct(searchQuery)}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color="#FFF" />
+                  <Text style={styles.createBtnText}>Create Product</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : null
         }
@@ -172,6 +191,15 @@ export default function ProductsScreen() {
       >
         <Ionicons name="add" size={30} color="#FFFFFF" />
       </TouchableOpacity>
+
+      <ScannerModal
+        visible={isScannerVisible}
+        onClose={() => setIsScannerVisible(false)}
+        onScan={(code) => {
+          setSearchQuery(code);
+          setIsScannerVisible(false);
+        }}
+      />
     </View>
   );
 }
@@ -203,6 +231,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     height: '100%',
+  },
+  scannerIcon: {
+    padding: 4,
+    marginLeft: 8,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -325,5 +357,19 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  createBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  createBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

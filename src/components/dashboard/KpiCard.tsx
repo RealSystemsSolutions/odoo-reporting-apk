@@ -13,10 +13,10 @@ function formatValue(value: number, unit: KpiData['unit']): string {
   if (unit === '$') {
     return value >= 1_000
       ? `$${(value / 1_000).toFixed(1)}k`
-      : `$${value.toLocaleString('es')}`;
+      : `$${value.toLocaleString('en-US')}`;
   }
   if (unit === '%') return `${value.toFixed(1)}%`;
-  return value.toLocaleString('es');
+  return value.toLocaleString('en-US');
 }
 
 export const KpiCard = React.memo(function KpiCard({ kpi }: Props) {
@@ -48,7 +48,7 @@ export const KpiCard = React.memo(function KpiCard({ kpi }: Props) {
       <View style={styles.changeRow}>
         <Ionicons name={changeIcon} size={13} color={changeColor} />
         <Text style={[styles.changeText, { color: changeColor }]}>
-          {Math.abs(kpi.change).toFixed(1)}% vs anterior
+          {kpi.change === Infinity ? '∞%' : `${Math.abs(kpi.change).toFixed(1)}%`} vs previous
         </Text>
       </View>
     </View>

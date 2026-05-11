@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Odoo Reports",
+    "name": "SwicPOS Pocket",
     "slug": "odoo-app-reporting",
     "version": "1.0.0",
     "scheme": "odoo-reporting",
@@ -46,6 +46,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e0d34748-04c0-454c-a313-11d3bd99ea50"
+      }
     }
   }
 }

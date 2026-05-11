@@ -26,7 +26,7 @@ export default function ScannerModal({ visible, onClose, onScan }: ScannerModalP
     return (
       <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
         <View style={[styles.center, { backgroundColor: colors.background }]}>
-          <Text style={{ color: colors.textPrimary }}>Cargando permisos de cámara...</Text>
+          <Text style={{ color: colors.textPrimary }}>Loading camera permissions...</Text>
         </View>
       </Modal>
     );
@@ -37,19 +37,19 @@ export default function ScannerModal({ visible, onClose, onScan }: ScannerModalP
       <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
         <View style={[styles.center, { backgroundColor: colors.background }]}>
           <Text style={[styles.message, { color: colors.textPrimary }]}>
-            Necesitamos permiso para usar la cámara para escanear el código de barras.
+            We need permission to use the camera to scan the barcode.
           </Text>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }]}
             onPress={requestPermission}
           >
-            <Text style={styles.buttonText}>Otorgar permiso</Text>
+            <Text style={styles.buttonText}>Grant Permission</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, marginTop: 12 }]}
             onPress={onClose}
           >
-            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Cancelar</Text>
+            <Text style={[styles.buttonText, { color: colors.textPrimary }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -63,7 +63,7 @@ export default function ScannerModal({ visible, onClose, onScan }: ScannerModalP
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={28} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.title}>Escanear Código</Text>
+          <Text style={styles.title}>Scan Code</Text>
           <View style={{ width: 44 }} />
         </View>
 

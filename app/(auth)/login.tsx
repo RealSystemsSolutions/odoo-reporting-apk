@@ -7,6 +7,7 @@ import { authenticate } from '@/services/auth.service';
 import { useAppStore } from '@/store/app.store';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
+import Logo from '@/components/ui/Logo';
 
 interface FormState {
   tenantUrl: string;
@@ -46,12 +47,12 @@ export default function LoginScreen() {
 
   const validate = (): boolean => {
     const next: FieldErrors = {};
-    if (!form.tenantUrl.trim()) next.tenantUrl = 'La URL del servidor es requerida';
+    if (!form.tenantUrl.trim()) next.tenantUrl = 'Server URL is required';
     else if (!form.tenantUrl.startsWith('http'))
-      next.tenantUrl = 'Debe comenzar con http:// o https://';
-    if (!form.db.trim()) next.db = 'El nombre de la base de datos es requerido';
-    if (!form.login.trim()) next.login = 'El correo es requerido';
-    if (!form.password) next.password = 'La contraseña es requerida';
+      next.tenantUrl = 'Must start with http:// or https://';
+    if (!form.db.trim()) next.db = 'Database name is required';
+    if (!form.login.trim()) next.login = 'Email is required';
+    if (!form.password) next.password = 'Password is required';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -69,8 +70,8 @@ export default function LoginScreen() {
       await storeLogin(user);
       router.replace('/(tabs)');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido';
-      Alert.alert('Error de autenticación', msg);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Authentication Error', msg);
     } finally {
       setLoading(false);
     }
@@ -92,21 +93,21 @@ export default function LoginScreen() {
         >
           {/* Logo / Header */}
           <View style={styles.logoContainer}>
-            <View style={[styles.logoCircle, { backgroundColor: colors.primaryLight, borderColor: 'rgba(59,130,246,0.3)' }]}>
-              <Ionicons name="bar-chart" size={36} color={colors.primary} />
+            <View style={styles.logoCircle}>
+              <Logo width={80} height={80} />
             </View>
-            <Text style={[styles.appTitle, { color: colors.textPrimary }]}>Odoo Reports</Text>
+            <Text style={[styles.appTitle, { color: colors.primary }]}>SwicPOS Pocket</Text>
             <Text style={[styles.appSubtitle, { color: colors.textSecondary }]}>Business Intelligence Dashboard</Text>
           </View>
 
           {/* Glass Card */}
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Iniciar Sesión</Text>
-            <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Conecta tu instancia de Odoo</Text>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Sign In</Text>
+            <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Connect to your Odoo instance</Text>
 
             {/* Tenant URL */}
             <InputField
-              label="URL del Servidor"
+              label="Server URL"
               icon="link-outline"
               placeholder="https://miempresa.odoo.com"
               value={form.tenantUrl}
@@ -118,7 +119,7 @@ export default function LoginScreen() {
 
             {/* Database */}
             <InputField
-              label="Base de Datos"
+              label="Database"
               icon="server-outline"
               placeholder="nombre_db"
               value={form.db}
@@ -129,7 +130,7 @@ export default function LoginScreen() {
 
             {/* Email */}
             <InputField
-              label="Correo Electrónico"
+              label="Email Address"
               icon="mail-outline"
               placeholder="admin@empresa.com"
               value={form.login}
@@ -141,7 +142,7 @@ export default function LoginScreen() {
 
             {/* Password */}
             <InputField
-              label="Contraseña"
+              label="Password"
               icon="lock-closed-outline"
               placeholder="••••••••"
               value={form.password}
@@ -152,7 +153,7 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   onPress={() => setShowPassword((v) => !v)}
                   style={styles.eyeBtn}
-                  accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                 >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -173,13 +174,13 @@ export default function LoginScreen() {
               onPress={handleLogin}
               disabled={loading}
               accessibilityRole="button"
-              accessibilityLabel="Iniciar sesión"
+              accessibilityLabel="Sign In"
             >
               {loading ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
                 <>
-                  <Text style={styles.loginBtnText}>Ingresar</Text>
+                  <Text style={styles.loginBtnText}>Login</Text>
                   <Ionicons name="arrow-forward" size={18} color="#fff" />
                 </>
               )}
@@ -187,7 +188,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={[styles.footer, { color: colors.textSecondary }]}>
-            Multi-tenant · Datos en tiempo real · Seguro
+            Multi-tenant · Real-time data · Secure
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -267,18 +268,14 @@ const styles = StyleSheet.create({
   // Logo
   logoContainer: { alignItems: 'center', marginBottom: 32 },
   logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: 'rgba(59,130,246,0.15)',
+    width: 100,
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.3)',
+   
   },
   appTitle: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '700',
     color: '#F9FAFB',
     letterSpacing: -0.5,

@@ -1,11 +1,50 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import type { OdooUser, ReportingPeriod, DashboardData } from '@/types/odoo.types';
 import { OdooDashboardService } from '@/services/odoo.service';
 
 // ─── Keys for SecureStore ─────────────────────────────────────────────────────
 
 const STORE_KEY_USER = 'odoo_user';
+
+// Helper for storage
+const setStorageItemAsync = async (key: string, value: string) => {
+  if (Platform.OS === 'web') {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.error('Local storage is unavailable:', e);
+    }
+  } else {
+    await SecureStore.setItemAsync(key, value);
+  }
+};
+
+const getStorageItemAsync = async (key: string): Promise<string | null> => {
+  if (Platform.OS === 'web') {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.error('Local storage is unavailable:', e);
+      return null;
+    }
+  } else {
+    return await SecureStore.getItemAsync(key);
+  }
+};
+
+const deleteStorageItemAsync = async (key: string) => {
+  if (Platform.OS === 'web') {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.error('Local storage is unavailable:', e);
+    }
+  } else {
+    await SecureStore.deleteItemAsync(key);
+  }
+};
 
 // ─── State shape ──────────────────────────────────────────────────────────────
 
@@ -39,12 +78,12 @@ export const useAppStore = create<AppState>((set) => ({
   isLoadingDashboard: false,
 
   login: async (user) => {
-    await SecureStore.setItemAsync(STORE_KEY_USER, JSON.stringify(user));
+    await setStorageItemAsync(STORE_KEY_USER, JSON.stringify(user));
     set({ user });
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync(STORE_KEY_USER);
+    await deleteStorageItemAsync(STORE_KEY_USER);
     set({ user: null });
   },
 
@@ -52,7 +91,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   rehydrate: async () => {
     try {
-      const raw = await SecureStore.getItemAsync(STORE_KEY_USER);
+      const raw = await getStorageItemAsync(STORE_KEY_USER);
       if (raw) {
         const user: OdooUser = JSON.parse(raw);
         set({ user, ready: true });
