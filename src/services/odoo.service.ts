@@ -12,9 +12,11 @@ export function getOdooClient(): AxiosInstance {
   const tenantUrl = useAppStore.getState().user?.tenant.url ?? '';
 
   if (!_instance || _instance.defaults.baseURL !== tenantUrl) {
+    axios.defaults.withCredentials = true;
     _instance = axios.create({
       baseURL: tenantUrl,
       timeout: 15_000,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },
