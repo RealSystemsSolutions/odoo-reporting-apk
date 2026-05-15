@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   ScrollView,
@@ -7,29 +7,29 @@ import {
   StatusBar,
   TouchableOpacity,
   Dimensions,
-} from 'react-native';
-import Text from '@/components/ui/Text';
-import Logo from '@/components/ui/Logo';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/theme/ThemeContext';
-import { useResponsive } from '@/hooks/useResponsive';
-import { useReportsStore } from '@/store/reports.store';
-import { useAppStore } from '@/store/app.store';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import DatePickerModal from '@/components/DatePickerModal';
+} from "react-native";
+import Text from "@/components/ui/Text";
+import Logo from "@/components/ui/Logo";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "@/theme/ThemeContext";
+import { useResponsive } from "@/hooks/useResponsive";
+import { useReportsStore } from "@/store/reports.store";
+import { useAppStore } from "@/store/app.store";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import DatePickerModal from "@/components/DatePickerModal";
 
 // Report components
-import SalesMarginComposedChart from '@/components/reports/SalesMarginComposedChart';
-import SalesMarginDonutChart from '@/components/reports/SalesMarginDonutChart';
-import InventoryStatusTable from '@/components/reports/InventoryStatusTable';
-import CrmPipelineFunnelChart from '@/components/reports/CrmPipelineFunnelChart';
-import PosShiftAnalysis from '@/components/reports/PosShiftAnalysis';
-import MasterReportView from '@/components/reports/MasterReportView';
+import SalesMarginComposedChart from "@/components/reports/SalesMarginComposedChart";
+import SalesMarginDonutChart from "@/components/reports/SalesMarginDonutChart";
+import InventoryStatusTable from "@/components/reports/InventoryStatusTable";
+
+import PosShiftAnalysis from "@/components/reports/PosShiftAnalysis";
+import MasterReportView from "@/components/reports/MasterReportView";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type ReportTab = 'sales' | 'inventory' | 'crm' | 'pos' | 'master';
+type ReportTab = "sales" | "inventory" | "pos" | "master";
 
 interface ReportMeta {
   id: ReportTab;
@@ -41,33 +41,26 @@ interface ReportMeta {
 
 const REPORTS: ReportMeta[] = [
   {
-    id: 'sales',
-    title: 'Sales & Margin',
-    description: 'Revenue, costs, and profit margins analysis.',
-    icon: 'trending-up',
-    gradient: ['#6366F1', '#4F46E5'],
+    id: "sales",
+    title: "Sales & Margin",
+    description: "Revenue, costs, and profit margins analysis.",
+    icon: "trending-up",
+    gradient: ["#6366F1", "#4F46E5"],
   },
   {
-    id: 'inventory',
-    title: 'Inventory Status',
-    description: 'Stock levels, critical alerts, and rotation.',
-    icon: 'cube',
-    gradient: ['#F59E0B', '#D97706'],
+    id: "inventory",
+    title: "Inventory Status",
+    description: "Stock levels, critical alerts, and rotation.",
+    icon: "cube",
+    gradient: ["#F59E0B", "#D97706"],
   },
+
   {
-    id: 'crm',
-    title: 'CRM Pipeline',
-    description: 'Sales funnel stages and conversion rates.',
-    icon: 'people',
-    gradient: ['#EC4899', '#DB2777'],
-  },
- 
-  {
-    id: 'master',
-    title: 'Master Financial',
-    description: 'Global financial overview and summary.',
-    icon: 'bar-chart',
-    gradient: ['#8B5CF6', '#7C3AED'],
+    id: "master",
+    title: "Master Financial",
+    description: "Global financial overview and summary.",
+    icon: "bar-chart",
+    gradient: ["#8B5CF6", "#7C3AED"],
   },
 ];
 
@@ -77,7 +70,9 @@ function SectionTitle({ children }: { children: string }) {
   const { colors } = useTheme();
   return (
     <View style={styles.sectionHeader}>
-      <View style={[styles.sectionAccent, { backgroundColor: colors.primary }]} />
+      <View
+        style={[styles.sectionAccent, { backgroundColor: colors.primary }]}
+      />
       <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         {children}
       </Text>
@@ -92,8 +87,10 @@ export default function ReportsScreen() {
   const { contentPadding, width } = useResponsive();
   const { colors, themeName } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedReportId, setSelectedReportId] = useState<ReportTab | null>(null);
-  
+  const [selectedReportId, setSelectedReportId] = useState<ReportTab | null>(
+    null,
+  );
+
   const [showDatePickerFrom, setShowDatePickerFrom] = useState(false);
   const [showDatePickerTo, setShowDatePickerTo] = useState(false);
 
@@ -104,13 +101,13 @@ export default function ReportsScreen() {
 
   const salesMarginReport = useReportsStore((s) => s.salesMarginReport);
   const inventoryReport = useReportsStore((s) => s.inventoryReport);
-  const crmPipelineReport = useReportsStore((s) => s.crmPipelineReport);
+
   const posShiftReport = useReportsStore((s) => s.posShiftReport);
   const masterReport = useReportsStore((s) => s.masterReport);
 
   const isLoadingSalesMargin = useReportsStore((s) => s.isLoadingSalesMargin);
   const isLoadingInventory = useReportsStore((s) => s.isLoadingInventory);
-  const isLoadingCrmPipeline = useReportsStore((s) => s.isLoadingCrmPipeline);
+
   const isLoadingPosShift = useReportsStore((s) => s.isLoadingPosShift);
   const isLoadingMaster = useReportsStore((s) => s.isLoadingMaster);
 
@@ -124,8 +121,10 @@ export default function ReportsScreen() {
     // Initial load for current month defaults
     if (!startDate && !endDate) {
       const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const end = now.toISOString().split('T')[0];
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString()
+        .split("T")[0];
+      const end = now.toISOString().split("T")[0];
       setDateRange(start, end);
       // We don't auto-load here anymore, user must press "Generate"
     }
@@ -133,27 +132,32 @@ export default function ReportsScreen() {
 
   const handleGenerate = useCallback(async () => {
     if (!selectedReportId) return;
-    
-    if (selectedReportId === 'sales') await useReportsStore.getState().loadSalesMarginReport();
-    else if (selectedReportId === 'inventory') await useReportsStore.getState().loadInventoryReport();
-    else if (selectedReportId === 'crm') await useReportsStore.getState().loadCrmPipelineReport();
-    else if (selectedReportId === 'pos') await useReportsStore.getState().loadPosShiftReport();
-    else if (selectedReportId === 'master') await useReportsStore.getState().loadMasterReport();
+
+    if (selectedReportId === "sales")
+      await useReportsStore.getState().loadSalesMarginReport();
+    else if (selectedReportId === "inventory")
+      await useReportsStore.getState().loadInventoryReport();
+    else if (selectedReportId === "pos")
+      await useReportsStore.getState().loadPosShiftReport();
+    else if (selectedReportId === "master")
+      await useReportsStore.getState().loadMasterReport();
   }, [selectedReportId]);
 
-  const calculateDatesForPeriod = (p: 'today' | 'week' | 'month') => {
+  const calculateDatesForPeriod = (p: "today" | "week" | "month") => {
     const now = new Date();
-    let start = '';
-    let end = now.toISOString().split('T')[0];
+    let start = "";
+    let end = now.toISOString().split("T")[0];
 
-    if (p === 'today') {
+    if (p === "today") {
       start = end;
-    } else if (p === 'week') {
+    } else if (p === "week") {
       const d = new Date(now);
       d.setDate(now.getDate() - now.getDay());
-      start = d.toISOString().split('T')[0];
-    } else if (p === 'month') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      start = d.toISOString().split("T")[0];
+    } else if (p === "month") {
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString()
+        .split("T")[0];
     }
     return { start, end };
   };
@@ -164,9 +168,9 @@ export default function ReportsScreen() {
     setRefreshing(false);
   }, [loadAllReports]);
 
-  const selectedReport = useMemo(() => 
-    REPORTS.find(r => r.id === selectedReportId), 
-    [selectedReportId]
+  const selectedReport = useMemo(
+    () => REPORTS.find((r) => r.id === selectedReportId),
+    [selectedReportId],
   );
 
   const isLoadingTab = useMemo(() => {
@@ -174,11 +178,18 @@ export default function ReportsScreen() {
     return {
       sales: isLoadingSalesMargin,
       inventory: isLoadingInventory,
-      crm: isLoadingCrmPipeline,
+
       pos: isLoadingPosShift,
       master: isLoadingMaster,
     }[selectedReportId];
-  }, [selectedReportId, isLoadingSalesMargin, isLoadingInventory, isLoadingCrmPipeline, isLoadingPosShift, isLoadingMaster]);
+  }, [
+    selectedReportId,
+    isLoadingSalesMargin,
+    isLoadingInventory,
+
+    isLoadingPosShift,
+    isLoadingMaster,
+  ]);
 
   const renderSelectionMenu = () => (
     <View style={styles.menuGrid}>
@@ -187,7 +198,10 @@ export default function ReportsScreen() {
           key={report.id}
           activeOpacity={0.8}
           onPress={() => setSelectedReportId(report.id)}
-          style={[styles.reportCardWrapper, { width: (width - contentPadding * 2 - 16) / 2 }]}
+          style={[
+            styles.reportCardWrapper,
+            { width: (width - contentPadding * 2 - 16) / 2 },
+          ]}
         >
           <LinearGradient
             colors={report.gradient}
@@ -198,7 +212,7 @@ export default function ReportsScreen() {
             <View style={styles.cardIconCircle}>
               <Ionicons name={report.icon as any} size={24} color="#FFF" />
             </View>
-            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <View style={{ flex: 1, justifyContent: "flex-end" }}>
               <Text style={styles.cardTitle}>{report.title}</Text>
               <Text style={styles.cardDesc} numberOfLines={2}>
                 {report.description}
@@ -213,7 +227,7 @@ export default function ReportsScreen() {
   const renderDateSelector = () => (
     <View style={styles.filterSection}>
       <View style={styles.periodRow}>
-        {(['today', 'week', 'month'] as const).map((p) => (
+        {(["today", "week", "month"] as const).map((p) => (
           <TouchableOpacity
             key={p}
             onPress={() => {
@@ -226,42 +240,73 @@ export default function ReportsScreen() {
               {
                 backgroundColor:
                   period === p ? colors.primary : colors.inputBackground,
-                borderColor:
-                  period === p ? colors.primary : colors.cardBorder,
+                borderColor: period === p ? colors.primary : colors.cardBorder,
               },
             ]}
           >
             <Text
               style={{
                 fontSize: 11,
-                fontWeight: '600',
-                color: period === p ? '#FFF' : colors.textSecondary,
+                fontWeight: "600",
+                color: period === p ? "#FFF" : colors.textSecondary,
               }}
             >
-              {p === 'today' ? 'Today' : p === 'week' ? 'Week' : 'Month'}
+              {p === "today" ? "Today" : p === "week" ? "Week" : "Month"}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <View style={styles.dateRangeRow}>
-        <View style={{ flex: 1, flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity 
-            style={[styles.dateInput, { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder }]}
+        <View style={{ flex: 1, flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity
+            style={[
+              styles.dateInput,
+              {
+                backgroundColor: colors.inputBackground,
+                borderColor: colors.cardBorder,
+              },
+            ]}
             onPress={() => setShowDatePickerFrom(true)}
           >
-            <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-            <Text style={[styles.dateInputText, { color: startDate ? colors.textPrimary : colors.textSecondary }]}>
-              {startDate || 'From'}
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color={colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.dateInputText,
+                {
+                  color: startDate ? colors.textPrimary : colors.textSecondary,
+                },
+              ]}
+            >
+              {startDate || "From"}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.dateInput, { backgroundColor: colors.inputBackground, borderColor: colors.cardBorder }]}
+          <TouchableOpacity
+            style={[
+              styles.dateInput,
+              {
+                backgroundColor: colors.inputBackground,
+                borderColor: colors.cardBorder,
+              },
+            ]}
             onPress={() => setShowDatePickerTo(true)}
           >
-            <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-            <Text style={[styles.dateInputText, { color: endDate ? colors.textPrimary : colors.textSecondary }]}>
-              {endDate || 'To'}
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color={colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.dateInputText,
+                { color: endDate ? colors.textPrimary : colors.textSecondary },
+              ]}
+            >
+              {endDate || "To"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -271,19 +316,20 @@ export default function ReportsScreen() {
           disabled={!startDate || !endDate || isLoadingTab}
           style={[
             styles.generateBtn,
-            { 
-              backgroundColor: (!startDate || !endDate) ? colors.cardBorder : colors.primary,
-              opacity: (!startDate || !endDate || isLoadingTab) ? 0.6 : 1
-            }
+            {
+              backgroundColor:
+                !startDate || !endDate ? colors.cardBorder : colors.primary,
+              opacity: !startDate || !endDate || isLoadingTab ? 0.6 : 1,
+            },
           ]}
         >
           <Text style={styles.generateBtnText}>
-            {isLoadingTab ? 'Loading...' : 'Generate'}
+            {isLoadingTab ? "Loading..." : "Generate"}
           </Text>
         </TouchableOpacity>
 
         {(startDate || endDate) && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.clearDatesBtn}
             onPress={() => setDateRange(null, null)}
           >
@@ -296,19 +342,23 @@ export default function ReportsScreen() {
 
   const renderReportContent = () => {
     switch (selectedReportId) {
-      case 'sales':
+      case "sales":
         return (
           <>
             <SectionTitle>Revenue vs Sales Cost</SectionTitle>
             {salesMarginReport && (
               <View style={{ gap: 16 }}>
-                <SalesMarginComposedChart data={salesMarginReport.monthlyComparison} />
-                <SalesMarginDonutChart data={salesMarginReport.categoryBreakdown} />
+                <SalesMarginComposedChart
+                  data={salesMarginReport.monthlyComparison}
+                />
+                <SalesMarginDonutChart
+                  data={salesMarginReport.categoryBreakdown}
+                />
               </View>
             )}
           </>
         );
-      case 'inventory':
+      case "inventory":
         return (
           <>
             <SectionTitle>Alerts & Stock Rotation</SectionTitle>
@@ -322,26 +372,15 @@ export default function ReportsScreen() {
             )}
           </>
         );
-      case 'crm':
-        return (
-          <>
-            <SectionTitle>Conversion Funnel</SectionTitle>
-            {crmPipelineReport && (
-              <CrmPipelineFunnelChart
-                stages={crmPipelineReport.stages}
-                totalRevenue={crmPipelineReport.totalRevenue}
-              />
-            )}
-          </>
-        );
-      case 'pos':
+
+      case "pos":
         return (
           <>
             <SectionTitle>POS Performance</SectionTitle>
             {posShiftReport && <PosShiftAnalysis data={posShiftReport} />}
           </>
         );
-      case 'master':
+      case "master":
         return (
           <>
             <SectionTitle>Financial Summary</SectionTitle>
@@ -349,8 +388,18 @@ export default function ReportsScreen() {
               <MasterReportView data={masterReport} />
             ) : (
               <View style={styles.emptyState}>
-                <Ionicons name="document-text-outline" size={48} color={colors.cardBorder} />
-                <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 12 }}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={48}
+                  color={colors.cardBorder}
+                />
+                <Text
+                  style={{
+                    color: colors.textSecondary,
+                    textAlign: "center",
+                    marginTop: 12,
+                  }}
+                >
                   No data found for the selected period.
                 </Text>
               </View>
@@ -365,7 +414,7 @@ export default function ReportsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StatusBar
-        barStyle={themeName === 'light' ? 'dark-content' : 'light-content'}
+        barStyle={themeName === "light" ? "dark-content" : "light-content"}
         backgroundColor={colors.background}
       />
 
@@ -392,19 +441,30 @@ export default function ReportsScreen() {
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <View style={styles.headerRow}>
           {selectedReportId && (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setSelectedReportId(null)}
-              style={[styles.backBtn, { backgroundColor: colors.inputBackground }]}
+              style={[
+                styles.backBtn,
+                { backgroundColor: colors.inputBackground },
+              ]}
             >
-              <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={colors.textPrimary}
+              />
             </TouchableOpacity>
           )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>
-              {selectedReport ? selectedReport.title : 'Executive Reports'}
+              {selectedReport ? selectedReport.title : "Executive Reports"}
             </Text>
-            <Text style={[styles.pageSubtitle, { color: colors.textSecondary }]}>
-              {selectedReport ? selectedReport.description : 'Real-time analysis connected to Odoo'}
+            <Text
+              style={[styles.pageSubtitle, { color: colors.textSecondary }]}
+            >
+              {selectedReport
+                ? selectedReport.description
+                : "Real-time analysis connected to Odoo"}
             </Text>
           </View>
         </View>
@@ -413,17 +473,33 @@ export default function ReportsScreen() {
           renderSelectionMenu()
         ) : (
           <View style={{ gap: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 12,
+              }}
+            >
               <Logo width={110} height={25} />
-              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textSecondary, textTransform: 'capitalize' }}>
-                {user?.tenant?.db || ''}
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: "700",
+                  color: colors.textSecondary,
+                  textTransform: "capitalize",
+                }}
+              >
+                {user?.tenant?.db || ""}
               </Text>
             </View>
             {renderDateSelector()}
-            
+
             {isLoadingTab ? (
-              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                <Text style={{ color: colors.textSecondary }}>Loading report data...</Text>
+              <View style={{ paddingVertical: 40, alignItems: "center" }}>
+                <Text style={{ color: colors.textSecondary }}>
+                  Loading report data...
+                </Text>
               </View>
             ) : (
               renderReportContent()
@@ -461,28 +537,28 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   pageTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   pageSubtitle: {
     fontSize: 13,
     marginTop: 4,
   },
   menuGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 16,
   },
   reportCardWrapper: {
@@ -493,7 +569,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 16,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -502,19 +578,19 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
   },
   cardTitle: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 4,
   },
   cardDesc: {
-    color: 'rgba(255,255,255,0.8)',
+    color: "rgba(255,255,255,0.8)",
     fontSize: 11,
     lineHeight: 14,
   },
@@ -522,7 +598,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   periodRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   periodBtn: {
@@ -532,14 +608,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   dateRangeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   dateInput: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -548,23 +624,23 @@ const styles = StyleSheet.create({
   },
   dateInputText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   clearDatesBtn: {
     padding: 4,
   },
   emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 60,
     borderRadius: 16,
     borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderStyle: "dashed",
+    borderColor: "rgba(0,0,0,0.1)",
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 12,
   },
@@ -575,21 +651,21 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontWeight: "700",
+    textTransform: "uppercase",
     letterSpacing: 1,
   },
   generateBtn: {
     paddingHorizontal: 5,
     paddingVertical: 10,
     borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     minWidth: 80,
   },
   generateBtnText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });
