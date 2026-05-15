@@ -493,7 +493,27 @@ export default function ReportsScreen() {
                 {user?.tenant?.db || ""}
               </Text>
             </View>
-            {renderDateSelector()}
+            {selectedReportId !== "inventory" ? (
+              renderDateSelector()
+            ) : (
+              <TouchableOpacity
+                onPress={handleGenerate}
+                style={[
+                  styles.generateBtn,
+                  {
+                    backgroundColor:
+                      !startDate || !endDate
+                        ? colors.cardBorder
+                        : colors.primary,
+                    opacity: !startDate || !endDate || isLoadingTab ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <Text style={styles.generateBtnText}>
+                  {isLoadingTab ? "Loading..." : "Generate"}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {isLoadingTab ? (
               <View style={{ paddingVertical: 40, alignItems: "center" }}>
@@ -508,23 +528,27 @@ export default function ReportsScreen() {
         )}
       </ScrollView>
 
-      <DatePickerModal
-        visible={showDatePickerFrom}
-        onClose={() => setShowDatePickerFrom(false)}
-        onSelect={(date) => setDateRange(date, endDate)}
-        title="Select Start Date"
-        selectedDate={startDate || undefined}
-        rangeTo={endDate || undefined}
-      />
+      {selectedReportId !== "inventory" && (
+        <>
+          <DatePickerModal
+            visible={showDatePickerFrom}
+            onClose={() => setShowDatePickerFrom(false)}
+            onSelect={(date) => setDateRange(date, endDate)}
+            title="Select Start Date"
+            selectedDate={startDate || undefined}
+            rangeTo={endDate || undefined}
+          />
 
-      <DatePickerModal
-        visible={showDatePickerTo}
-        onClose={() => setShowDatePickerTo(false)}
-        onSelect={(date) => setDateRange(startDate, date)}
-        title="Select End Date"
-        selectedDate={endDate || undefined}
-        rangeFrom={startDate || undefined}
-      />
+          <DatePickerModal
+            visible={showDatePickerTo}
+            onClose={() => setShowDatePickerTo(false)}
+            onSelect={(date) => setDateRange(startDate, date)}
+            title="Select End Date"
+            selectedDate={endDate || undefined}
+            rangeFrom={startDate || undefined}
+          />
+        </>
+      )}
     </View>
   );
 }
