@@ -506,6 +506,9 @@ export default function ReportsScreen() {
                         ? colors.cardBorder
                         : colors.primary,
                     opacity: !startDate || !endDate || isLoadingTab ? 0.6 : 1,
+                    minWidth: 0,
+                    width: 120,
+                    alignSelf: "flex-start",
                   },
                 ]}
               >
