@@ -1405,6 +1405,10 @@ export const OdooCategoryService = {
 import type {
   OdooPurchaseOrder,
   OdooPurchaseOrderLine,
+  OdooStockPicking,
+  OdooAccountMove,
+  OdooMailMessage,
+  LineOrmCommand,
   PurchaseKpis,
 } from "@/types/purchase.types";
 
@@ -1416,6 +1420,9 @@ const PURCHASE_ORDER_FIELDS = [
   "amount_total",
   "state",
   "order_line",
+  "picking_ids",
+  "invoice_ids",
+  "notes",
 ];
 
 const PURCHASE_LINE_FIELDS = [
@@ -1609,5 +1616,157 @@ export const OdooPurchaseService = {
     });
 
     return newId;
+  },
+
+  // ─── Lifecycle actions ───────────────────────────────────────────────────
+
+  async cancelOrder(id: number): Promise<boolean> {
+    try {
+      await callOdoo<unknown>({
+        model: "purchase.order",
+        method: "button_cancel",
+        args: [[id]],
+        kwargs: {},
+      });
+      return true;
+    } catch (e) {
+      console.error("cancelOrder error:", e);
+      return false;
+    }
+  },
+
+  /** Locks a confirmed purchase order (state: purchase → done). */
+  async lockOrder(id: number): Promise<boolean> {
+    try {
+      await callOdoo<unknown>({
+        model: "purchase.order",
+        method: "button_done",
+        args: [[id]],
+        kwargs: {},
+      });
+      return true;
+    } catch (e) {
+      console.error("lockOrder error:", e);
+      return false;
+    }
+  },
+
+  /** Unlocks a locked purchase order (state: done → purchase). */
+  async unlockOrder(id: number): Promise<boolean> {
+    try {
+      await callOdoo<unknown>({
+        model: "purchase.order",
+        method: "button_unlock",
+        args: [[id]],
+        kwargs: {},
+      });
+      return true;
+    } catch (e) {
+      console.error("unlockOrder error:", e);
+      return false;
+    }
+  },
+
+  // ─── Detail & related data ────────────────────────────────────────────────
+
+  /** Fetches a single purchase.order by ID with all fields including relational ids. */
+  async getOrderById(id: number): Promise<OdooPurchaseOrder> {
+    const results = await callOdoo<OdooPurchaseOrder[]>({
+      model: "purchase.order",
+      method: "read",
+      args: [[id], PURCHASE_ORDER_FIELDS],
+      kwargs: {},
+    });
+    return results[0];
+  },
+
+  /**
+   * Applies ORM write commands (0 = create, 1 = update, 2 = delete) to order_line
+   * and returns true on success.
+   */
+  async updateOrder(id: number, commands: LineOrmCommand[]): Promise<boolean> {
+    try {
+      await callOdoo<boolean>({
+        model: "purchase.order",
+        method: "write",
+        args: [[id], { order_line: commands }],
+        kwargs: {},
+      });
+      return true;
+    } catch (e) {
+      console.error("updateOrder error:", e);
+      return false;
+    }
+  },
+
+  /** Fetches stock.picking records (receipts) by their IDs. */
+  async getPickings(ids: number[]): Promise<OdooStockPicking[]> {
+    if (!ids || ids.length === 0) return [];
+    return await callOdoo<OdooStockPicking[]>({
+      model: "stock.picking",
+      method: "search_read",
+      args: [[["id", "in", ids]]],
+      kwargs: {
+        fields: ["name", "state", "scheduled_date", "date_done"],
+      },
+    });
+  },
+
+  /** Fetches account.move records (vendor bills) by their IDs. */
+  async getInvoices(ids: number[]): Promise<OdooAccountMove[]> {
+    if (!ids || ids.length === 0) return [];
+    return await callOdoo<OdooAccountMove[]>({
+      model: "account.move",
+      method: "search_read",
+      args: [[["id", "in", ids]]],
+      kwargs: {
+        fields: ["name", "state", "invoice_date", "amount_total", "payment_state"],
+      },
+    });
+  },
+
+  /**
+   * Fetches chatter messages for a purchase order.
+   * Ordered by date descending.
+   */
+  async getMessages(orderId: number): Promise<OdooMailMessage[]> {
+    return await callOdoo<OdooMailMessage[]>({
+      model: "mail.message",
+      method: "search_read",
+      args: [
+        [
+          ["res_id", "=", orderId],
+          ["model", "=", "purchase.order"],
+          ["message_type", "in", ["comment", "email", "notification"]],
+        ],
+      ],
+      kwargs: {
+        fields: ["author_id", "date", "body", "message_type", "subtype_id"],
+        order: "date desc",
+        limit: 50,
+      },
+    });
+  },
+
+  /**
+   * Posts an internal note to the purchase order chatter via message_post.
+   * Uses the model method directly to ensure proper tracking.
+   */
+  async postMessage(orderId: number, body: string): Promise<boolean> {
+    try {
+      await callOdoo<unknown>({
+        model: "purchase.order",
+        method: "message_post",
+        args: [[orderId]],
+        kwargs: {
+          body,
+          message_type: "comment",
+        },
+      });
+      return true;
+    } catch (e) {
+      console.error("postMessage error:", e);
+      return false;
+    }
   },
 };
