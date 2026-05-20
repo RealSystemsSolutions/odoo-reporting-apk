@@ -28,13 +28,12 @@ export default function DashboardHeader({ onRefresh }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-          <Logo width={110} height={25} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textSecondary, textTransform: 'capitalize', marginLeft: 'auto', marginRight: 16 }}>
-            {user?.tenant?.db || ''}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+          <Logo width={36} height={36} />
+          <Text style={{ fontSize: 22, fontWeight: '700', color: colors.textPrimary }}>Dashboard</Text>
         </View>
         <View style={styles.headerActions}>
+          
           <TouchableOpacity
             style={[styles.refreshBtn, { backgroundColor: colors.primaryLight, borderColor: 'rgba(59,130,246,0.25)' }]}
             onPress={toggleTheme}

@@ -105,13 +105,13 @@ export default function ProductsScreen() {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12, paddingHorizontal: 16 }]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Logo width={110} height={25} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textSecondary, textTransform: 'capitalize' }}>
-            {user?.tenant?.db || ''}
-          </Text>
+        <View style={styles.titleRow}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <Logo width={36} height={36} />
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Products</Text>
+          </View>
+          
         </View>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Products</Text>
         <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
@@ -211,10 +211,15 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 16,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',

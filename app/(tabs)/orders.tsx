@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import Text from '@/components/ui/Text';
 import Logo from '@/components/ui/Logo';
+import { odooDateToLocalKey, formatLocalDateKey, formatOdooDateTime } from '@/utils/dateUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -132,11 +133,15 @@ export default function OrdersScreen() {
       return dateA.localeCompare(dateB);
     });
 
-    // 2. Accumulate per day
+    // 2. Accumulate per day (using LOCAL calendar date, not raw UTC substring)
     let currentDay = '';
     let dailySum = 0;
     const withAccumulated = sorted.map((order) => {
-      const orderDate = (order.pos_payment_date || order.date_order || '').substring(0, 10);
+      // pos_payment_date is already a local date string "YYYY-MM-DD"; date_order is UTC.
+      const rawDate = order.pos_payment_date || order.date_order || '';
+      const orderDate = order.pos_payment_date
+        ? rawDate.substring(0, 10)          // already local
+        : odooDateToLocalKey(rawDate);       // convert UTC → local date key
       if (orderDate !== currentDay) {
         currentDay = orderDate;
         dailySum = 0;
@@ -158,7 +163,7 @@ export default function OrdersScreen() {
         {showDivider && (
           <View style={styles.dayDivider}>
             <Text style={[styles.dayDividerText, { color: colors.textSecondary }]}>
-              {item.dayGroup ? new Date(item.dayGroup + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Unknown Date'}
+              {formatLocalDateKey(item.dayGroup)}
             </Text>
           </View>
         )}
@@ -192,7 +197,7 @@ export default function OrdersScreen() {
             </Text>
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
               <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />{' '}
-              {item.date_order ? `${item.date_order.substring(0, 10)} ${item.date_order.substring(11, 16)}` : 'No date'}
+              {item.date_order ? formatOdooDateTime(item.date_order) : 'No date'}
             </Text>
           </View>
 
@@ -218,30 +223,30 @@ export default function OrdersScreen() {
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12, paddingHorizontal: 16, backgroundColor: colors.background }]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Logo width={110} height={25} />
-          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textSecondary, textTransform: 'capitalize' }}>
-            {user?.tenant?.db || ''}
-          </Text>
-        </View>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Quotations & Orders</Text>
-          <TouchableOpacity
-            style={[
-              styles.filterToggle,
-              { backgroundColor: hasActiveFilters ? colors.primary : colors.card, borderColor: colors.cardBorder }
-            ]}
-            onPress={toggleFilters}
-          >
-            <Ionicons
-              name="options-outline"
-              size={18}
-              color={hasActiveFilters ? '#fff' : colors.textPrimary}
-            />
-            {hasActiveFilters && (
-              <View style={styles.filterDot} />
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <Logo width={36} height={36} />
+            <Text style={[styles.title, { color: colors.textPrimary }]}>Quotations & Orders</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+           
+            <TouchableOpacity
+              style={[
+                styles.filterToggle,
+                { backgroundColor: hasActiveFilters ? colors.primary : colors.card, borderColor: colors.cardBorder }
+              ]}
+              onPress={toggleFilters}
+            >
+              <Ionicons
+                name="options-outline"
+                size={18}
+                color={hasActiveFilters ? '#fff' : colors.textPrimary}
+              />
+              {hasActiveFilters && (
+                <View style={styles.filterDot} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Search bar */}
@@ -368,13 +373,7 @@ export default function OrdersScreen() {
         }
       />
 
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.primary, bottom: insets.bottom + 20 }]}
-        onPress={handleAddOrder}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={30} color="#FFFFFF" />
-      </TouchableOpacity>
+     
 
       <DatePickerModal
         visible={showDatePickerFrom}
@@ -406,7 +405,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  title: { fontSize: 28, fontWeight: '700' },
+  title: { fontSize: 22, fontWeight: '700' },
   filterToggle: {
     width: 40,
     height: 40,

@@ -438,9 +438,9 @@ export default function ReportsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ───────────────────────────────────────────────────────── */}
+        {/* ── Header: Logo + Title / Back button ─────────────────────────── */}
         <View style={styles.headerRow}>
-          {selectedReportId && (
+          {selectedReportId ? (
             <TouchableOpacity
               onPress={() => setSelectedReportId(null)}
               style={[
@@ -454,6 +454,8 @@ export default function ReportsScreen() {
                 color={colors.textPrimary}
               />
             </TouchableOpacity>
+          ) : (
+            <Logo width={36} height={36} />
           )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.pageTitle, { color: colors.textPrimary }]}>
@@ -467,32 +469,13 @@ export default function ReportsScreen() {
                 : "Real-time analysis connected to Odoo"}
             </Text>
           </View>
+        
         </View>
 
         {!selectedReportId ? (
           renderSelectionMenu()
         ) : (
           <View style={{ gap: 20 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
-              }}
-            >
-              <Logo width={110} height={25} />
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: "700",
-                  color: colors.textSecondary,
-                  textTransform: "capitalize",
-                }}
-              >
-                {user?.tenant?.db || ""}
-              </Text>
-            </View>
             {selectedReportId !== "inventory" ? (
               renderDateSelector()
             ) : (

@@ -85,6 +85,7 @@ function LayoutContent() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="product-details" options={{ presentation: 'modal' }} />
         <Stack.Screen name="order-details" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="create-purchase-order" options={{ presentation: 'modal' }} />
       </Stack>
     </GestureHandlerRootView>
   );

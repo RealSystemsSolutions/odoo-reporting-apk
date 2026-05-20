@@ -5,6 +5,26 @@ import { useAppStore } from "@/store/app.store";
 let _instance: AxiosInstance | null = null;
 
 /**
+ * Detects if an Odoo error represents a session expiration.
+ */
+function isSessionExpired(error: any): boolean {
+  if (!error) return false;
+  const message = error.data?.message ?? error.message;
+  const name = error.data?.name;
+  return (
+    name === 'odoo.http.SessionExpiredException' ||
+    (typeof message === 'string' && message.toLowerCase().includes('session expired'))
+  );
+}
+
+/**
+ * Triggers a global logout to redirect the user to login.
+ */
+const handleSessionExpired = () => {
+  useAppStore.getState().logout();
+};
+
+/**
  * Returns an Axios instance configured for the current tenant's Odoo URL.
  * The baseURL is read dynamically from the Zustand store each time.
  */
@@ -41,12 +61,18 @@ export function getOdooClient(): AxiosInstance {
     _instance.interceptors.response.use(
       (res) => res,
       (err) => {
+        // Redirect on 401 Unauthorized
+        if (err?.response?.status === 401) {
+          handleSessionExpired();
+        }
+
         // Normalize Odoo JSON-RPC errors
         const odooError = err?.response?.data?.error;
         if (odooError) {
-          return Promise.reject(
-            new Error(odooError.data?.message ?? odooError.message),
-          );
+          if (isSessionExpired(odooError)) {
+            handleSessionExpired();
+          }
+          return Promise.reject(new Error(odooError.data?.message ?? odooError.message));
         }
         return Promise.reject(err);
       },
@@ -80,6 +106,9 @@ export async function callOdoo<T>(payload: JsonRpcPayload): Promise<T> {
   });
 
   if (data.error) {
+    if (isSessionExpired(data.error)) {
+      handleSessionExpired();
+    }
     throw new Error(data.error.data?.message ?? data.error.message);
   }
 
@@ -1368,5 +1397,217 @@ export const OdooCategoryService = {
       console.error("Delete category error:", e);
       throw e;
     }
+  },
+};
+
+// ─── Purchases Service ────────────────────────────────────────────────────────
+
+import type {
+  OdooPurchaseOrder,
+  OdooPurchaseOrderLine,
+  PurchaseKpis,
+} from "@/types/purchase.types";
+
+const PURCHASE_ORDER_FIELDS = [
+  "name",
+  "partner_id",
+  "date_order",
+  "date_approve",
+  "amount_total",
+  "state",
+  "order_line",
+];
+
+const PURCHASE_LINE_FIELDS = [
+  "product_id",
+  "name",
+  "product_qty",
+  "price_unit",
+  "price_subtotal",
+  "product_uom",
+];
+
+export const OdooPurchaseService = {
+  /**
+   * Fetches summary KPIs:
+   * - pendingApprovals: count of POs in draft or sent state.
+   * - committedSpendThisMonth: sum of amount_total of confirmed POs in current month.
+   */
+  async getKpis(): Promise<PurchaseKpis> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const fmt = (d: Date) =>
+      d.toISOString().replace("T", " ").substring(0, 19);
+
+    const [pendingResult, spendResult] = await Promise.all([
+      callOdoo<any[]>({
+        model: "purchase.order",
+        method: "search_read",
+        args: [[["state", "in", ["draft", "sent"]]]],
+        kwargs: { fields: ["id"] },
+      }),
+      callOdoo<any[]>({
+        model: "purchase.order",
+        method: "search_read",
+        args: [
+          [
+            ["state", "=", "purchase"],
+            ["date_approve", ">=", fmt(startOfMonth)],
+          ],
+        ],
+        kwargs: { fields: ["amount_total"] },
+      }),
+    ]);
+
+    const pendingApprovals = Array.isArray(pendingResult)
+      ? pendingResult.length
+      : 0;
+    const committedSpendThisMonth = Array.isArray(spendResult)
+      ? spendResult.reduce(
+          (acc: number, po: any) => acc + (po.amount_total ?? 0),
+          0,
+        )
+      : 0;
+
+    return { pendingApprovals, committedSpendThisMonth };
+  },
+
+  /**
+   * Fetches the latest purchase orders (max 30), ordered by date descending.
+   */
+  async getOrders(limit = 30): Promise<OdooPurchaseOrder[]> {
+    return await callOdoo<OdooPurchaseOrder[]>({
+      model: "purchase.order",
+      method: "search_read",
+      args: [[]],
+      kwargs: {
+        fields: PURCHASE_ORDER_FIELDS,
+        limit,
+        order: "date_order desc, id desc",
+      },
+    });
+  },
+
+  /**
+   * Fetches purchase.order.line records by their IDs.
+   */
+  async getOrderLines(lineIds: number[]): Promise<OdooPurchaseOrderLine[]> {
+    if (!lineIds || lineIds.length === 0) return [];
+    return await callOdoo<OdooPurchaseOrderLine[]>({
+      model: "purchase.order.line",
+      method: "search_read",
+      args: [[["id", "in", lineIds]]],
+      kwargs: { fields: PURCHASE_LINE_FIELDS },
+    });
+  },
+
+  /**
+   * Confirms a purchase order using button_confirm (RFQ → Purchase Order).
+   */
+  async confirmOrder(id: number): Promise<boolean> {
+    try {
+      await callOdoo<unknown>({
+        model: "purchase.order",
+        method: "button_confirm",
+        args: [[id]],
+        kwargs: {},
+      });
+      return true;
+    } catch (e) {
+      console.error("confirmPurchaseOrder error:", e);
+      return false;
+    }
+  },
+
+  /**
+   * Live-searches vendors from res.partner where supplier_rank > 0 or is_company = true.
+   */
+  async searchVendors(
+    query: string,
+    limit = 15,
+  ): Promise<Array<{ id: number; name: string }>> {
+    const domain: any[] = [
+      "|",
+      ["supplier_rank", ">", 0],
+      ["is_company", "=", true],
+    ];
+    if (query.trim()) {
+      domain.push(["name", "ilike", query.trim()]);
+    }
+    return await callOdoo<Array<{ id: number; name: string }>>({
+      model: "res.partner",
+      method: "search_read",
+      args: [domain],
+      kwargs: { fields: ["id", "name"], limit, order: "name asc" },
+    });
+  },
+
+  /**
+   * Live-searches purchasable products from product.product.
+   * Returns id, name, standard_price (cost) and uom_id (unit of measure).
+   */
+  async searchPurchaseProducts(
+    query: string,
+    limit = 15,
+  ): Promise<
+    Array<{ id: number; name: string; standard_price: number; uom_id: [number, string] | false }>
+  > {
+    const domain: any[] = [["active", "=", true]];
+    if (query.trim()) {
+      domain.push("|");
+      domain.push(["name", "ilike", query.trim()]);
+      domain.push(["default_code", "ilike", query.trim()]);
+    }
+    return await callOdoo<any[]>({
+      model: "product.product",
+      method: "search_read",
+      args: [domain],
+      kwargs: {
+        fields: ["id", "name", "standard_price", "uom_id"],
+        limit,
+        order: "name asc",
+      },
+    });
+  },
+
+  /**
+   * Creates a purchase.order draft (RFQ) using the Odoo Command-0 syntax
+   * for One2many order_line: [0, 0, { field: value }]
+   */
+  async createPurchaseOrder(payload: {
+    partner_id: number;
+    order_line: Array<{
+      product_id: number;
+      product_qty: number;
+      price_unit: number;
+      name?: string;
+      product_uom?: number;
+    }>;
+  }): Promise<number> {
+    const lineCommands = payload.order_line.map((line) => [
+      0,
+      0,
+      {
+        product_id: line.product_id,
+        product_qty: line.product_qty,
+        price_unit: line.price_unit,
+        ...(line.name ? { name: line.name } : {}),
+        ...(line.product_uom ? { product_uom: line.product_uom } : {}),
+      },
+    ]);
+
+    const newId = await callOdoo<number>({
+      model: "purchase.order",
+      method: "create",
+      args: [
+        {
+          partner_id: payload.partner_id,
+          order_line: lineCommands,
+        },
+      ],
+      kwargs: {},
+    });
+
+    return newId;
   },
 };

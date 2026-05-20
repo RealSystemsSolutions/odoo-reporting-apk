@@ -39,6 +39,12 @@ const TABS: TabConfig[] = [
     iconFocused: 'file-tray-stacked',
   },
   {
+    name: 'purchases',
+    title: 'Purchases',
+    icon: 'cart-outline',
+    iconFocused: 'cart',
+  },
+  {
     name: 'orders',
     title: 'Orders',
     icon: 'document-text-outline',

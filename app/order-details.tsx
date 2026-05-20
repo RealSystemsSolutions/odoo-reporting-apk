@@ -9,6 +9,7 @@ import { useOrdersStore } from '@/store/orders.store';
 import { OdooOrder, OdooOrderLine, OdooPartner, OdooProduct } from '@/types/odoo.types';
 import ClientSelectorModal from '@/components/ClientSelectorModal';
 import ProductSelectorModal from '@/components/ProductSelectorModal';
+import { formatOdooDate, formatOdooTime } from '@/utils/dateUtils';
 
 export default function OrderDetailsScreen() {
   const { id, orderData } = useLocalSearchParams<{ id: string; orderData?: string }>();
@@ -258,9 +259,9 @@ export default function OrderDetailsScreen() {
             </Text>
             {formData.date_order && (
               <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: 4 }}>
-                <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} /> {formData.date_order.substring(0, 10)}
+                <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} /> {formatOdooDate(formData.date_order)}
                 <Text>  </Text>
-                <Ionicons name="time-outline" size={12} color={colors.textSecondary} /> {formData.date_order.substring(11, 16)}
+                <Ionicons name="time-outline" size={12} color={colors.textSecondary} /> {formatOdooTime(formData.date_order)}
               </Text>
             )}
           </View>
