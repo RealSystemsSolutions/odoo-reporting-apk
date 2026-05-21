@@ -21,6 +21,9 @@ export const usePurchasesStore = create<PurchasesState>((set, get) => ({
   isLoadingInvoices: false,
   isLoadingMessages: false,
   isPostingMessage: false,
+  pickingMoveLines: [],
+  isLoadingMoveLines: false,
+  isValidatingPicking: false,
   error: null,
 
   // ─── List & selection ───────────────────────────────────────────────────
@@ -58,6 +61,7 @@ export const usePurchasesStore = create<PurchasesState>((set, get) => ({
       pickings: [],
       invoices: [],
       messages: [],
+      pickingMoveLines: [],
     });
   },
 
@@ -101,20 +105,6 @@ export const usePurchasesStore = create<PurchasesState>((set, get) => ({
       return success;
     } catch (err: unknown) {
       console.error('cancelPurchaseOrder error:', err);
-      return false;
-    } finally {
-      set({ isActionLoading: false });
-    }
-  },
-
-  lockPurchaseOrder: async (id) => {
-    set({ isActionLoading: true });
-    try {
-      const success = await OdooPurchaseService.lockOrder(id);
-      if (success) await get().refreshSelectedOrder(id);
-      return success;
-    } catch (err: unknown) {
-      console.error('lockPurchaseOrder error:', err);
       return false;
     } finally {
       set({ isActionLoading: false });
@@ -195,6 +185,36 @@ export const usePurchasesStore = create<PurchasesState>((set, get) => ({
       return false;
     } finally {
       set({ isPostingMessage: false });
+    }
+  },
+
+  // ─── Receive Products ──────────────────────────────────────────────────
+
+  fetchPickingMoveLines: async (pickingId) => {
+    set({ isLoadingMoveLines: true, pickingMoveLines: [] });
+    try {
+      const lines = await OdooPurchaseService.getPickingMoveLines(pickingId);
+      set({ pickingMoveLines: lines, isLoadingMoveLines: false });
+    } catch (err: unknown) {
+      console.error('fetchPickingMoveLines error:', err);
+      set({ isLoadingMoveLines: false });
+    }
+  },
+
+  validatePicking: async (pickingId, lines) => {
+    set({ isValidatingPicking: true });
+    try {
+      const success = await OdooPurchaseService.validatePicking(pickingId, lines);
+      if (success) {
+        const { selectedOrder } = get();
+        if (selectedOrder) await get().refreshSelectedOrder(selectedOrder.id);
+      }
+      return success;
+    } catch (err: unknown) {
+      console.error('validatePicking error:', err);
+      return false;
+    } finally {
+      set({ isValidatingPicking: false });
     }
   },
 }));

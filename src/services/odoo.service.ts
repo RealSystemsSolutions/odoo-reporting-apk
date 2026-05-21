@@ -1406,6 +1406,7 @@ import type {
   OdooPurchaseOrder,
   OdooPurchaseOrderLine,
   OdooStockPicking,
+  OdooStockMoveLine,
   OdooAccountMove,
   OdooMailMessage,
   LineOrmCommand,
@@ -1766,6 +1767,88 @@ export const OdooPurchaseService = {
       return true;
     } catch (e) {
       console.error("postMessage error:", e);
+      return false;
+    }
+  },
+
+  /**
+   * Fetches all stock.move records for a given stock.picking.
+   * Returns demand qty (product_uom_qty) and done qty (quantity_done).
+   */
+  async getPickingMoveLines(pickingId: number): Promise<OdooStockMoveLine[]> {
+    return await callOdoo<OdooStockMoveLine[]>({
+      model: "stock.move",
+      method: "search_read",
+      args: [[["picking_id", "=", pickingId]]],
+      kwargs: {
+        fields: ["product_id", "product_uom", "product_uom_qty", "quantity", "picking_id"],
+      },
+    });
+  },
+
+  /**
+   * Validates a stock picking:
+   * 1. Writes quantity_done on each move.
+   * 2. Calls button_validate on the picking.
+   *    If Odoo returns an "immediate transfer" wizard, we call process() on it.
+   */
+  async validatePicking(
+    pickingId: number,
+    lines: { id: number; qty_done: number }[]
+  ): Promise<boolean> {
+    try {
+      // Step 1: batch-write quantity_done on all lines
+      if (lines.length > 0) {
+        for (const line of lines) {
+          await callOdoo<boolean>({
+            model: "stock.move",
+            method: "write",
+            args: [[line.id], { quantity: line.qty_done }],
+            kwargs: {},
+          });
+        }
+      }
+
+      // Step 2: validate the picking
+      const result = await callOdoo<any>({
+        model: "stock.picking",
+        method: "button_validate",
+        args: [[pickingId]],
+        kwargs: {},
+      });
+
+      // If Odoo returns a wizard action (ImmediateTransfer or BackorderConfirmation),
+      // we resolve it automatically by calling process() on the wizard.
+      if (result && typeof result === "object" && result.res_model) {
+        if (
+          result.res_model === "stock.immediate.transfer" ||
+          result.res_model === "stock.backorder.confirmation"
+        ) {
+          const wizardId = result.res_id;
+          if (wizardId) {
+            if (result.res_model === "stock.immediate.transfer") {
+              await callOdoo<any>({
+                model: "stock.immediate.transfer",
+                method: "process",
+                args: [[wizardId]],
+                kwargs: {},
+              });
+            } else {
+              // BackorderConfirmation → process without creating backorder
+              await callOdoo<any>({
+                model: "stock.backorder.confirmation",
+                method: "process",
+                args: [[wizardId]],
+                kwargs: { pick_ids: [pickingId] },
+              });
+            }
+          }
+        }
+      }
+
+      return true;
+    } catch (e) {
+      console.error("validatePicking error:", e);
       return false;
     }
   },

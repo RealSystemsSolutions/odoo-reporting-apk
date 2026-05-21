@@ -46,6 +46,17 @@ export interface OdooStockPicking {
   date_done: string | false;
 }
 
+export interface OdooStockMoveLine {
+  id: number;
+  product_id: [number, string] | false;
+  product_uom: [number, string] | false;
+  /** Demand quantity */
+  product_uom_qty: number;
+  /** Done quantity (editable by user) */
+  quantity_done: number;
+  picking_id: [number, string] | false;
+}
+
 export interface OdooAccountMove {
   id: number;
   name: string;
@@ -89,7 +100,7 @@ export interface PurchasesState {
   isLoading: boolean;
   isLoadingLines: boolean;
   isConfirming: boolean;
-  /** True while any lifecycle action (cancel/lock/unlock) is running */
+  /** True while any lifecycle action (cancel/unlock) is running */
   isActionLoading: boolean;
   pickings: OdooStockPicking[];
   invoices: OdooAccountMove[];
@@ -98,6 +109,10 @@ export interface PurchasesState {
   isLoadingInvoices: boolean;
   isLoadingMessages: boolean;
   isPostingMessage: boolean;
+  /** Move lines for the receive-products modal */
+  pickingMoveLines: OdooStockMoveLine[];
+  isLoadingMoveLines: boolean;
+  isValidatingPicking: boolean;
   error: string | null;
 
   fetchData: () => Promise<void>;
@@ -107,7 +122,6 @@ export interface PurchasesState {
   refreshSelectedOrder: (id: number) => Promise<void>;
   confirmPurchaseOrder: (id: number) => Promise<boolean>;
   cancelPurchaseOrder: (id: number) => Promise<boolean>;
-  lockPurchaseOrder: (id: number) => Promise<boolean>;
   unlockPurchaseOrder: (id: number) => Promise<boolean>;
   /** Applies ORM commands (0/1/2) to order_line and re-fetches the order. */
   updatePurchaseOrder: (id: number, commands: LineOrmCommand[]) => Promise<boolean>;
@@ -115,4 +129,8 @@ export interface PurchasesState {
   fetchInvoices: (invoiceIds: number[]) => Promise<void>;
   fetchMessages: (orderId: number) => Promise<void>;
   postMessage: (orderId: number, body: string) => Promise<boolean>;
+  /** Fetches stock.move.line records for a given picking. */
+  fetchPickingMoveLines: (pickingId: number) => Promise<void>;
+  /** Sets qty_done on each move line then validates the picking. */
+  validatePicking: (pickingId: number, lines: { id: number; qty_done: number }[]) => Promise<boolean>;
 }

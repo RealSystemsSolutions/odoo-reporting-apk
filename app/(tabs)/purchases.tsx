@@ -407,20 +407,23 @@ function DetailProductPicker({ visible, onClose, onAdd }: DetailProductPickerPro
 interface ActionBarProps {
   state: PurchaseOrderState;
   isLoading: boolean;
+  hasOpenPickings: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-  onLock: () => void;
+  onReceive: () => void;
   onUnlock: () => void;
 }
 
-function ActionBar({ state, isLoading, onConfirm, onCancel, onLock, onUnlock }: ActionBarProps) {
+function ActionBar({ state, isLoading, hasOpenPickings, onConfirm, onCancel, onReceive, onUnlock }: ActionBarProps) {
   const { colors } = useTheme();
   const canConfirm = state === 'draft' || state === 'sent';
-  const canCancel = state !== 'cancel' && state !== 'done';
-  const canLock = state === 'purchase';
+  // Cancel only when order hasn't been received yet (draft/sent/purchase)
+  const canCancel = state === 'draft' || state === 'sent' || state === 'purchase';
+  // Receive Products: confirmed PO with at least one non-done picking
+  const canReceive = state === 'purchase' && hasOpenPickings;
   const canUnlock = state === 'done';
 
-  if (!canConfirm && !canCancel && !canLock && !canUnlock) return null;
+  if (!canConfirm && !canCancel && !canReceive && !canUnlock) return null;
 
   return (
     <View style={styles.actionBar}>
@@ -442,10 +445,10 @@ function ActionBar({ state, isLoading, onConfirm, onCancel, onLock, onUnlock }: 
         </TouchableOpacity>
       )}
 
-      {canLock && (
+      {canReceive && (
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: '#3B82F6' }]}
-          onPress={onLock}
+          onPress={onReceive}
           disabled={isLoading}
           activeOpacity={0.8}
         >
@@ -453,8 +456,8 @@ function ActionBar({ state, isLoading, onConfirm, onCancel, onLock, onUnlock }: 
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Ionicons name="lock-closed-outline" size={18} color="#fff" />
-              <Text style={styles.actionBtnText}>Lock</Text>
+              <Ionicons name="archive-outline" size={18} color="#fff" />
+              <Text style={styles.actionBtnText}>Receive Products</Text>
             </>
           )}
         </TouchableOpacity>
@@ -494,6 +497,190 @@ function ActionBar({ state, isLoading, onConfirm, onCancel, onLock, onUnlock }: 
         </TouchableOpacity>
       )}
     </View>
+  );
+}
+
+// ─── Detail: Receive Products Modal ───────────────────────────────────────────
+
+interface MoveLineEdit {
+  id: number;
+  product_name: string;
+  uom_name: string;
+  demand: number;
+  qty_done: string;
+}
+
+interface ReceiveProductsModalProps {
+  visible: boolean;
+  pickingId: number | null;
+  onClose: () => void;
+  onSuccess: () => void;
+  showAlert: (title: string, message: string) => void;
+}
+
+function ReceiveProductsModal({ visible, pickingId, onClose, onSuccess, showAlert }: ReceiveProductsModalProps) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { pickingMoveLines, isLoadingMoveLines, isValidatingPicking, fetchPickingMoveLines, validatePicking } = usePurchasesStore();
+  const [editLines, setEditLines] = useState<MoveLineEdit[]>([]);
+
+  useEffect(() => {
+    if (visible && pickingId) {
+      fetchPickingMoveLines(pickingId);
+    }
+    if (!visible) {
+      setEditLines([]);
+    }
+  }, [visible, pickingId]);
+
+  useEffect(() => {
+    if (pickingMoveLines.length > 0) {
+      setEditLines(
+        pickingMoveLines.map((ml) => ({
+          id: ml.id,
+          product_name: ml.product_id ? ml.product_id[1] : 'Unknown Product',
+          uom_name: ml.product_uom ? ml.product_uom[1] : '',
+          demand: ml.product_uom_qty,
+          qty_done: String(ml.product_uom_qty > 0 ? ml.product_uom_qty : ml.quantity_done),
+        }))
+      );
+    }
+  }, [pickingMoveLines]);
+
+  const handleValidate = async () => {
+    if (!pickingId) return;
+    const lines = editLines.map((l) => ({
+      id: l.id,
+      qty_done: parseFloat(l.qty_done) || 0,
+    }));
+    const ok = await validatePicking(pickingId, lines);
+    if (ok) {
+      onSuccess();
+      onClose();
+    } else {
+      showAlert('Error', 'Could not validate the receipt. Please try again.');
+    }
+  };
+
+  const allZero = editLines.every((l) => (parseFloat(l.qty_done) || 0) === 0);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
+        <View
+          style={[
+            styles.receiveSheet,
+            { backgroundColor: colors.card, paddingBottom: insets.bottom + 16 },
+          ]}
+        >
+          {/* Handle */}
+          <View style={[styles.pickerHandle, { backgroundColor: colors.cardBorder, alignSelf: 'center', marginBottom: 12 }]} />
+
+          <Text style={[styles.pickerTitle, { color: colors.textPrimary, marginBottom: 4 }]}>Receive Products</Text>
+          <Text style={[{ color: colors.textSecondary, fontSize: 13, marginBottom: 16, paddingHorizontal: 20 }]}>
+            Review the quantities and tap Validate to receive them into stock.
+          </Text>
+
+          {/* Header row */}
+          <View style={[styles.receiveTblHeader, { borderBottomColor: colors.cardBorder }]}>
+            <Text style={[styles.receiveTblHd, { color: colors.textSecondary, flex: 3 }]}>Product</Text>
+            <Text style={[styles.receiveTblHd, { color: colors.textSecondary, flex: 1, textAlign: 'center' }]}>Demand</Text>
+            <Text style={[styles.receiveTblHd, { color: colors.textSecondary, flex: 1.2, textAlign: 'center' }]}>Done Qty</Text>
+          </View>
+
+          {isLoadingMoveLines ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : editLines.length === 0 ? (
+            <View style={{ padding: 32, alignItems: 'center' }}>
+              <Ionicons name="cube-outline" size={36} color={colors.cardBorder} />
+              <Text style={{ color: colors.textSecondary, marginTop: 8 }}>No move lines found.</Text>
+            </View>
+          ) : (
+            <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled">
+              {editLines.map((line, idx) => (
+                <View
+                  key={line.id}
+                  style={[
+                    styles.receiveTblRow,
+                    { borderBottomColor: colors.cardBorder, backgroundColor: idx % 2 === 0 ? 'transparent' : colors.background + '80' },
+                  ]}
+                >
+                  <View style={{ flex: 3 }}>
+                    <Text style={[{ color: colors.textPrimary, fontSize: 13 }]} numberOfLines={2}>
+                      {line.product_name}
+                    </Text>
+                    {line.uom_name ? (
+                      <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{line.uom_name}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={[{ flex: 1, textAlign: 'center', color: colors.textSecondary, fontSize: 14 }]}>
+                    {line.demand}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.receiveDoneInput,
+                      {
+                        color: colors.textPrimary,
+                        borderColor: colors.cardBorder,
+                        backgroundColor: colors.background,
+                      },
+                    ]}
+                    keyboardType="numeric"
+                    value={line.qty_done}
+                    onChangeText={(v) =>
+                      setEditLines((prev) =>
+                        prev.map((l) => (l.id === line.id ? { ...l, qty_done: v } : l))
+                      )
+                    }
+                    selectTextOnFocus
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.confirmLineBtn,
+              {
+                backgroundColor:
+                  allZero || isValidatingPicking || isLoadingMoveLines
+                    ? colors.cardBorder
+                    : '#10B981',
+                marginHorizontal: 20,
+                marginTop: 16,
+              },
+            ]}
+            onPress={handleValidate}
+            disabled={allZero || isValidatingPicking || isLoadingMoveLines}
+            activeOpacity={0.8}
+          >
+            {isValidatingPicking ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Ionicons
+                  name="checkmark-done-outline"
+                  size={18}
+                  color={allZero || isLoadingMoveLines ? colors.textSecondary : '#fff'}
+                />
+                <Text
+                  style={[
+                    styles.confirmLineTxt,
+                    { color: allZero || isLoadingMoveLines ? colors.textSecondary : '#fff' },
+                  ]}
+                >
+                  Validate Receipt
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -815,7 +1002,6 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
     isPostingMessage,
     confirmPurchaseOrder,
     cancelPurchaseOrder,
-    lockPurchaseOrder,
     unlockPurchaseOrder,
     updatePurchaseOrder,
     fetchPickings,
@@ -829,9 +1015,44 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
   const [editLines, setEditLines] = useState<EditableLine[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [receiveModalVisible, setReceiveModalVisible] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [trackingLoaded, setTrackingLoaded] = useState(false);
   const [notesLoaded, setNotesLoaded] = useState(false);
+
+  // ── Custom Dialog State ──
+  const [dialogConfig, setDialogConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'alert' | 'confirm';
+    cancelText?: string;
+    confirmText?: string;
+    isDestructive?: boolean;
+    onConfirm?: () => void;
+  } | null>(null);
+
+  const showAlert = (title: string, message: string) => {
+    setDialogConfig({ visible: true, title, message, type: 'alert' });
+  };
+
+  const showConfirm = (
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    opts?: { isDestructive?: boolean; confirmText?: string; cancelText?: string }
+  ) => {
+    setDialogConfig({
+      visible: true,
+      title,
+      message,
+      type: 'confirm',
+      onConfirm,
+      isDestructive: opts?.isDestructive ?? false,
+      confirmText: opts?.confirmText ?? 'Confirm',
+      cancelText: opts?.cancelText ?? 'Cancel',
+    });
+  };
 
   // Reset state on modal open/close
   useEffect(() => {
@@ -870,6 +1091,10 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
     : 'Unknown Supplier';
   const isEditable = selectedOrder.state === 'draft' || selectedOrder.state === 'sent';
   const anyActionLoading = isConfirming || isActionLoading;
+  // Has an open (non-done/cancel) picking: shows Receive Products button
+  const hasOpenPickings =
+    selectedOrder.picking_ids.length > 0 &&
+    pickings.some((p) => p.state !== 'done' && p.state !== 'cancel');
 
   // ── Edit mode helpers ──────────────────────────────────────────────────
 
@@ -937,7 +1162,7 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
         setIsEditMode(false);
         setEditLines([]);
       } else {
-        Alert.alert('Error', 'Could not save changes. Please try again.');
+        showAlert('Error', 'Could not save changes. Please try again.');
       }
     } finally {
       setIsSaving(false);
@@ -947,57 +1172,37 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
   // ── Action handlers ────────────────────────────────────────────────────
 
   const handleConfirm = () => {
-    Alert.alert(
+    showConfirm(
       'Confirm Purchase Order',
       `Confirm ${selectedOrder.name}? This will create a receipt and block further edits.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm Order',
-          onPress: async () => {
-            const ok = await confirmPurchaseOrder(selectedOrder.id);
-            if (!ok) Alert.alert('Error', 'Could not confirm the order. Please try again.');
-            else setTrackingLoaded(false); // Reset so Tracking tab reloads
-          },
-        },
-      ],
+      async () => {
+        const ok = await confirmPurchaseOrder(selectedOrder.id);
+        if (!ok) showAlert('Error', 'Could not confirm the order. Please try again.');
+        else setTrackingLoaded(false);
+      },
+      { confirmText: 'Confirm Order' }
     );
   };
 
   const handleCancel = () => {
-    Alert.alert(
+    showConfirm(
       'Cancel Order',
       `Cancel ${selectedOrder.name}? This action may not be reversible.`,
-      [
-        { text: 'Keep', style: 'cancel' },
-        {
-          text: 'Cancel Order',
-          style: 'destructive',
-          onPress: async () => {
-            const ok = await cancelPurchaseOrder(selectedOrder.id);
-            if (!ok) Alert.alert('Error', 'Could not cancel the order.');
-          },
-        },
-      ],
+      async () => {
+        const ok = await cancelPurchaseOrder(selectedOrder.id);
+        if (!ok) showAlert('Error', 'Could not cancel the order.');
+      },
+      { confirmText: 'Cancel Order', isDestructive: true, cancelText: 'Keep' }
     );
   };
 
-  const handleLock = () => {
-    Alert.alert('Lock Order', 'Lock this order? No further changes will be allowed.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Lock',
-        onPress: async () => {
-          const ok = await lockPurchaseOrder(selectedOrder.id);
-          if (!ok) Alert.alert('Error', 'Could not lock the order.');
-        },
-      },
-    ]);
+  const handleReceive = () => {
+    setReceiveModalVisible(true);
   };
 
   const handleUnlock = async () => {
     const ok = await unlockPurchaseOrder(selectedOrder.id);
-    if (!ok) Alert.alert('Error', 'Could not unlock the order.');
+    if (!ok) showAlert('Error', 'Could not unlock the order.');
   };
 
   const handlePostNote = async () => {
@@ -1007,7 +1212,7 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
     if (ok) {
       setNoteText('');
     } else {
-      Alert.alert('Error', 'Could not post the note. Please try again.');
+      showAlert('Error', 'Could not post the note. Please try again.');
     }
   };
 
@@ -1032,10 +1237,12 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
   // ── Back/close logic ───────────────────────────────────────────────────
   const handleBack = () => {
     if (isEditMode) {
-      Alert.alert('Discard Changes', 'Discard unsaved changes?', [
-        { text: 'Keep Editing', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: cancelEditMode },
-      ]);
+      showConfirm(
+        'Discard Changes',
+        'Discard unsaved changes?',
+        cancelEditMode,
+        { confirmText: 'Discard', isDestructive: true, cancelText: 'Keep Editing' }
+      );
     } else {
       onClose();
     }
@@ -1374,9 +1581,10 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
               <ActionBar
                 state={selectedOrder.state}
                 isLoading={anyActionLoading}
+                hasOpenPickings={hasOpenPickings}
                 onConfirm={handleConfirm}
                 onCancel={handleCancel}
-                onLock={handleLock}
+                onReceive={handleReceive}
                 onUnlock={handleUnlock}
               />
             )}
@@ -1477,6 +1685,70 @@ function PurchaseDetailModal({ visible, onClose }: DetailModalProps) {
         onClose={() => setPickerVisible(false)}
         onAdd={handleAddEditLine}
       />
+
+      {/* Receive Products Modal */}
+      <ReceiveProductsModal
+        visible={receiveModalVisible}
+        pickingId={
+          pickings.find((p) => p.state !== 'done' && p.state !== 'cancel')?.id ?? null
+        }
+        onClose={() => setReceiveModalVisible(false)}
+        onSuccess={() => {
+          setTrackingLoaded(false); // Force tracking tab to reload
+        }}
+        showAlert={showAlert}
+      />
+
+      {/* Custom Dialog overlay */}
+      {dialogConfig?.visible && (
+        <View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 9999,
+              elevation: 9999,
+            }
+          ]}
+        >
+          <View style={{ backgroundColor: colors.card, margin: 24, borderRadius: 12, padding: 20, width: '85%', maxWidth: 350, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 }}>{dialogConfig.title}</Text>
+            <Text style={{ fontSize: 15, color: colors.textSecondary, marginBottom: 24, lineHeight: 22 }}>{dialogConfig.message}</Text>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              {dialogConfig.type === 'confirm' && (
+                <TouchableOpacity
+                  onPress={() => setDialogConfig(null)}
+                  style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 }}
+                >
+                  <Text style={{ color: colors.textSecondary, fontSize: 15, fontWeight: '500' }}>
+                    {dialogConfig.cancelText}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              
+              <TouchableOpacity
+                onPress={() => {
+                  setDialogConfig(null);
+                  if (dialogConfig.onConfirm) dialogConfig.onConfirm();
+                }}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 16,
+                  borderRadius: 8,
+                  backgroundColor: dialogConfig.isDestructive ? colors.danger : colors.primary
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>
+                  {dialogConfig.type === 'confirm' ? dialogConfig.confirmText : 'OK'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </Modal>
   );
 }
@@ -2106,4 +2378,50 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   confirmLineTxt: { fontSize: 15, fontWeight: '700' },
+
+  // Receive Products Modal Styles
+  receiveSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    maxHeight: '80%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: { elevation: 16 },
+    }),
+  },
+  receiveTblHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+  },
+  receiveTblHd: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  receiveTblRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  receiveDoneInput: {
+    flex: 1.2,
+    height: 36,
+    borderWidth: 1,
+    borderRadius: 8,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
 });
