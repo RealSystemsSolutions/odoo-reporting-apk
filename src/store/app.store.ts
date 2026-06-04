@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { OdooUser, ReportingPeriod, DashboardData } from '@/types/odoo.types';
 import { OdooDashboardService } from '@/services/odoo.service';
+import { logger } from '@/utils/logger';
 
 // ─── Keys for SecureStore ─────────────────────────────────────────────────────
 
@@ -78,11 +79,14 @@ export const useAppStore = create<AppState>((set) => ({
   isLoadingDashboard: false,
 
   login: async (user) => {
+    logger.info('APP_STORE', 'Saving user to storage', { uid: user.uid, db: user.tenant.db });
     await setStorageItemAsync(STORE_KEY_USER, JSON.stringify(user));
+    logger.info('APP_STORE', 'User saved, updating state');
     set({ user });
   },
 
   logout: async () => {
+    logger.info('APP_STORE', 'Logging out — clearing storage');
     await deleteStorageItemAsync(STORE_KEY_USER);
     set({ user: null });
   },
@@ -90,15 +94,19 @@ export const useAppStore = create<AppState>((set) => ({
   setPeriod: (period) => set({ period }),
 
   rehydrate: async () => {
+    logger.info('APP_STORE', 'Rehydration start', { platform: Platform.OS });
     try {
       const raw = await getStorageItemAsync(STORE_KEY_USER);
       if (raw) {
         const user: OdooUser = JSON.parse(raw);
+        logger.info('APP_STORE', 'Rehydration success — user found', { uid: user.uid, db: user.tenant.db });
         set({ user, ready: true });
       } else {
+        logger.info('APP_STORE', 'Rehydration complete — no stored user');
         set({ ready: true });
       }
-    } catch {
+    } catch (e) {
+      logger.error('APP_STORE', 'Rehydration error', { error: String(e) });
       set({ ready: true });
     }
   },

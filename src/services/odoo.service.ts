@@ -602,9 +602,10 @@ export const OdooProductService = {
   ): Promise<OdooProduct[]> {
     const domain: any[] = [["active", "=", true]];
     if (search) {
-      domain.push("|");
+      domain.push("|", "|");
       domain.push(["name", "ilike", search]);
       domain.push(["default_code", "ilike", search]);
+      domain.push(["barcode", "=", search]);
     }
 
     return await callOdoo<OdooProduct[]>({

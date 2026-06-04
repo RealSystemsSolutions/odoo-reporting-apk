@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Alert,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import { toast } from '@/store/toast.store';
+import PriceInput from '@/components/ui/PriceInput';
 import Text from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeContext';
@@ -48,16 +49,17 @@ export default function CategoryModal({ visible, onClose, onSave, category }: Pr
 
   const handleSave = async () => {
     if (!formData.name) {
-      Alert.alert('Error', 'Please enter a category name');
+      toast.error('Please enter a category name');
       return;
     }
 
     setLoading(true);
     try {
       await onSave(formData);
+      toast.success(category ? 'Category updated successfully' : 'Category created successfully');
       onClose();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save category');
+      toast.error(e.message || 'Failed to save category');
     } finally {
       setLoading(false);
     }
@@ -81,21 +83,31 @@ export default function CategoryModal({ visible, onClose, onSave, category }: Pr
   const renderInput = (label: string, field: keyof OdooProductCategory, placeholder: string, keyboardType: any = 'default') => (
     <View style={styles.inputGroup}>
       <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <TextInput
-        style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
-        value={formData[field]?.toString() || ''}
-        onChangeText={(val) => setFormData({ ...formData, [field]: keyboardType === 'numeric' ? parseFloat(val) || 0 : val })}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textSecondary}
-        keyboardType={keyboardType}
-      />
+      {keyboardType === 'numeric' ? (
+        <PriceInput
+          style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
+          value={(formData[field] as number) || 0}
+          onChangeValue={(n) => setFormData({ ...formData, [field]: n })}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+        />
+      ) : (
+        <TextInput
+          style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
+          value={formData[field]?.toString() || ''}
+          onChangeText={(val) => setFormData({ ...formData, [field]: val })}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+          keyboardType={keyboardType}
+        />
+      )}
     </View>
   );
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modalOverlay}
       >
         <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -153,15 +165,15 @@ export default function CategoryModal({ visible, onClose, onSave, category }: Pr
           </ScrollView>
 
           <View style={[styles.footer, { borderTopColor: colors.cardBorder }]}>
-            <TouchableOpacity 
-              style={[styles.cancelBtn, { borderColor: colors.cardBorder }]} 
+            <TouchableOpacity
+              style={[styles.cancelBtn, { borderColor: colors.cardBorder }]}
               onPress={onClose}
               disabled={loading}
             >
               <Text style={{ color: colors.textSecondary }}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.saveBtn, { backgroundColor: colors.primary }]} 
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
               onPress={handleSave}
               disabled={loading}
             >

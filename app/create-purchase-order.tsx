@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform,
   Modal, FlatList, Animated,
 } from 'react-native';
+import { toast } from '@/store/toast.store';
 import Text from '@/components/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -246,11 +247,11 @@ export default function CreatePurchaseOrderScreen() {
 
   const handleSubmit = async () => {
     if (!selectedVendor) {
-      Alert.alert('Missing Vendor', 'Please select a vendor first.');
+      toast.error('Please select a vendor first.');
       return;
     }
     if (lines.length === 0) {
-      Alert.alert('Empty Order', 'Add at least one product to the order.');
+      toast.error('Add at least one product to the order.');
       return;
     }
 
@@ -267,14 +268,12 @@ export default function CreatePurchaseOrderScreen() {
         })),
       });
 
-      // Refresh list and go back
       await fetchData();
-      Alert.alert('RFQ Created', 'The draft purchase order was created successfully.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      toast.success('Purchase request created successfully.');
+      router.back();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      Alert.alert('Connection Error', `Could not create the order.\n\n${msg}`);
+      toast.error(`Could not create the order. ${msg}`);
     } finally {
       setSubmitting(false);
     }

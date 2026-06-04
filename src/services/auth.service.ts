@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { OdooUser } from '@/types/odoo.types';
+import { logger } from '@/utils/logger';
 
 interface AuthenticateParams {
   tenantUrl: string;
@@ -16,6 +17,21 @@ interface OdooSessionResponse {
 }
 
 /**
+ * Fetches the list of available databases from an Odoo instance.
+ */
+export async function fetchDatabases(tenantUrl: string): Promise<string[]> {
+  const url = `${tenantUrl.replace(/\/$/, '')}/web/database/list`;
+  const response = await axios.post(
+    url,
+    { jsonrpc: '2.0', method: 'call', id: 1, params: {} },
+    { timeout: 10_000, headers: { 'Content-Type': 'application/json' } },
+  );
+  const body = response.data as Record<string, unknown>;
+  if (Array.isArray(body.result)) return body.result as string[];
+  return [];
+}
+
+/**
  * Authenticates against an Odoo instance using the JSON-RPC session endpoint.
  * Returns an OdooUser ready to be saved in the Zustand store.
  */
@@ -24,33 +40,55 @@ export async function authenticate(params: AuthenticateParams): Promise<OdooUser
 
   const url = `${tenantUrl.replace(/\/$/, '')}/web/session/authenticate`;
 
-  const { data } = await axios.post(
-    url,
-    {
-      jsonrpc: '2.0',
-      method: 'call',
-      id: 1,
-      params: { db, login, password },
-    },
-    {
-      timeout: 15_000,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/plain, */*'
-      },
-    }
-  );
+  logger.info('AUTH', 'Sending authenticate request', { url, db, login });
 
-  if (data.error) {
-    console.log("Error de autenticación",data.error);
-    throw new Error(data.error.data?.message ?? 'Error de autenticación');
+  let data: unknown;
+  try {
+    const response = await axios.post(
+      url,
+      {
+        jsonrpc: '2.0',
+        method: 'call',
+        id: 1,
+        params: { db, login, password },
+      },
+      {
+        timeout: 15_000,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*',
+        },
+      }
+    );
+    data = response.data;
+    logger.info('AUTH', 'Response received', {
+      status: response.status,
+      hasResult: !!(response.data as Record<string, unknown>)?.result,
+      hasError: !!(response.data as Record<string, unknown>)?.error,
+    });
+  } catch (e) {
+    logger.error('AUTH', 'Network error during authentication', { error: String(e) });
+    throw e;
   }
 
-  const result: OdooSessionResponse = data.result;
+  const body = data as Record<string, unknown>;
+
+  if (body.error) {
+    const errMsg = (body.error as Record<string, unknown>)?.data
+      ? ((body.error as Record<string, unknown>).data as Record<string, unknown>)?.message as string
+      : 'Error de autenticación';
+    logger.error('AUTH', 'Odoo returned error', { error: errMsg });
+    throw new Error(errMsg ?? 'Error de autenticación');
+  }
+
+  const result = body.result as OdooSessionResponse;
 
   if (!result?.uid) {
+    logger.error('AUTH', 'No uid in result — bad credentials');
     throw new Error('Credenciales incorrectas');
   }
+
+  logger.info('AUTH', 'Authentication successful', { uid: result.uid, name: result.name, hasSessionId: !!result.session_id });
 
   return {
     uid: result.uid,
