@@ -1,19 +1,14 @@
-[build]
-  publish = "dist"
+# Build settings are configured in the Netlify dashboard — not here.
+# This file only handles routing.
 
-[functions]
-  directory = "netlify/functions"
+# Edge function intercepts /api/odoo/* before any redirect rule.
+# It forwards the request server-to-server to the user's Odoo instance
+# (URL provided in the X-Odoo-Base-Url request header).
+[[edge_functions]]
+  function = "odoo-proxy"
+  path = "/api/odoo/*"
 
-# Dynamic Odoo proxy: all Odoo API calls on web go through here.
-# The Netlify function reads X-Odoo-Base-Url from each request header
-# and forwards to the user's actual Odoo server (multi-tenant safe).
-[[redirects]]
-  from = "/api/odoo/*"
-  to = "/.netlify/functions/odoo-proxy"
-  status = 200
-  force = true
-
-# SPA fallback
+# SPA fallback: all other paths serve the app shell.
 [[redirects]]
   from = "/*"
   to = "/index.html"
