@@ -16,76 +16,83 @@ interface ProductsState {
   archiveProduct: (id: number) => Promise<boolean>;
 }
 
-export const useProductsStore = create<ProductsState>((set, get) => ({
-  products: [],
-  isLoading: false,
-  error: null,
-  searchQuery: '',
-  hasMore: true,
+function buildStore() {
+  let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-  setSearchQuery: (query: string) => {
-    set({ searchQuery: query });
-    get().fetchProducts(true);
-  },
+  return create<ProductsState>((set, get) => ({
+    products: [],
+    isLoading: false,
+    error: null,
+    searchQuery: '',
+    hasMore: true,
 
-  fetchProducts: async (refresh = false) => {
-    const { products, searchQuery, isLoading, hasMore } = get();
-    if (isLoading) return;
-    if (!refresh && !hasMore) return;
+    setSearchQuery: (query: string) => {
+      set({ searchQuery: query });
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => get().fetchProducts(true), 350);
+    },
 
-    set({ isLoading: true, error: null });
+    fetchProducts: async (refresh = false) => {
+      const { products, searchQuery, isLoading, hasMore } = get();
+      if (isLoading && !refresh) return;
+      if (!refresh && !hasMore) return;
 
-    try {
-      const offset = refresh ? 0 : products.length;
-      const limit = 20;
-      const newProducts = await OdooProductService.getProducts(limit, offset, searchQuery);
-      
-      set({
-        products: refresh ? newProducts : [...products, ...newProducts],
-        hasMore: newProducts.length === limit,
-        isLoading: false,
-      });
-    } catch (err: any) {
-      set({ error: err.message || 'Error fetching products', isLoading: false });
-    }
-  },
+      set({ isLoading: true, error: null });
 
-  createProduct: async (data: Partial<OdooProduct>) => {
-    set({ isLoading: true, error: null });
-    try {
-      await OdooProductService.createProduct(data);
-      await get().fetchProducts(true); // Refresh list
-      return true;
-    } catch (err: any) {
-      set({ error: err.message || 'Error creating product', isLoading: false });
-      return false;
-    }
-  },
+      try {
+        const offset = refresh ? 0 : products.length;
+        const limit = 20;
+        const newProducts = await OdooProductService.getProducts(limit, offset, searchQuery);
 
-  updateProduct: async (id: number, data: Partial<OdooProduct>) => {
-    set({ isLoading: true, error: null });
-    try {
-      await OdooProductService.updateProduct(id, data);
-      await get().fetchProducts(true); // Refresh list
-      return true;
-    } catch (err: any) {
-      set({ error: err.message || 'Error updating product', isLoading: false });
-      return false;
-    }
-  },
+        set({
+          products: refresh ? newProducts : [...products, ...newProducts],
+          hasMore: newProducts.length === limit,
+          isLoading: false,
+        });
+      } catch (err: any) {
+        set({ error: err.message || 'Error fetching products', isLoading: false });
+      }
+    },
 
-  archiveProduct: async (id: number) => {
-    set({ isLoading: true, error: null });
-    try {
-      await OdooProductService.archiveProduct(id);
-      set((state) => ({
-        products: state.products.filter(p => p.id !== id),
-        isLoading: false
-      }));
-      return true;
-    } catch (err: any) {
-      set({ error: err.message || 'Error archiving product', isLoading: false });
-      return false;
-    }
-  },
-}));
+    createProduct: async (data: Partial<OdooProduct>) => {
+      set({ isLoading: true, error: null });
+      try {
+        await OdooProductService.createProduct(data);
+        await get().fetchProducts(true);
+        return true;
+      } catch (err: any) {
+        set({ error: err.message || 'Error creating product', isLoading: false });
+        return false;
+      }
+    },
+
+    updateProduct: async (id: number, data: Partial<OdooProduct>) => {
+      set({ isLoading: true, error: null });
+      try {
+        await OdooProductService.updateProduct(id, data);
+        await get().fetchProducts(true);
+        return true;
+      } catch (err: any) {
+        set({ error: err.message || 'Error updating product', isLoading: false });
+        return false;
+      }
+    },
+
+    archiveProduct: async (id: number) => {
+      set({ isLoading: true, error: null });
+      try {
+        await OdooProductService.archiveProduct(id);
+        set((state) => ({
+          products: state.products.filter(p => p.id !== id),
+          isLoading: false,
+        }));
+        return true;
+      } catch (err: any) {
+        set({ error: err.message || 'Error archiving product', isLoading: false });
+        return false;
+      }
+    },
+  }));
+}
+
+export const useProductsStore = buildStore();

@@ -90,6 +90,7 @@ export interface OdooProduct {
   sale_ok?: boolean;
   purchase_ok?: boolean;
   product_variant_id?: [number, string] | false;
+  virtual_available?: number;
   
   // Custom fields (POS / Supermarket)
   food_stamp?: boolean;

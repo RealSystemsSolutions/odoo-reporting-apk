@@ -94,7 +94,7 @@ export default function ProductsScreen() {
           </View>
           <View style={styles.cardFooter}>
             <View style={styles.qtyBadge}>
-              <Text style={styles.qtyText}>{item.qty_available} units</Text>
+              <Text style={styles.qtyText}>{item.virtual_available ?? item.qty_available} units</Text>
             </View>
           </View>
         </View>
@@ -110,7 +110,7 @@ export default function ProductsScreen() {
             <Logo width={36} height={36} />
             <Text style={[styles.title, { color: colors.textPrimary }]}>Products</Text>
           </View>
-          
+
         </View>
         <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />

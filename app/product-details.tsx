@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TextInput, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Switch } from 'react-native';
+import { toast } from '@/store/toast.store';
 import Text from '@/components/ui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeContext';
 import { useProductsStore } from '@/store/products.store';
+import { OdooProductService } from '@/services/odoo.service';
 import { OdooProduct, OdooProductCategory } from '@/types/odoo.types';
 import ScannerModal from '@/components/ScannerModal';
 import CategorySelectorModal from '@/components/CategorySelectorModal';
@@ -22,6 +24,10 @@ export default function ProductDetailsScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
+  const [qtyAvailable, setQtyAvailable] = useState(0);
+  const [originalQty, setOriginalQty] = useState(0);
+  const [variantId, setVariantId] = useState<number | null>(null);
+  const [originalType, setOriginalType] = useState<{ type: string; is_storable: boolean }>({ type: 'consu', is_storable: true });
 
   const [formData, setFormData] = useState<Partial<OdooProduct>>({
     name: '',
@@ -87,11 +93,13 @@ export default function ProductDetailsScreen() {
 
   const [computedData, setComputedData] = useState<{
     qty_available: number;
+    virtual_available: number;
     product_variant_count: number;
     image_128: string | false;
     categ_name: string;
   }>({
     qty_available: 0,
+    virtual_available: 0,
     product_variant_count: 0,
     image_128: false,
     categ_name: '',
@@ -157,10 +165,18 @@ export default function ProductDetailsScreen() {
         });
         setComputedData({
           qty_available: product.qty_available || 0,
+          virtual_available: product.virtual_available ?? product.qty_available ?? 0,
           product_variant_count: product.product_variant_count || 0,
           image_128: product.image_128 || false,
           categ_name: product.categ_id ? product.categ_id[1] : 'N/A',
         });
+        const qty = product.qty_available || 0;
+        setQtyAvailable(qty);
+        setOriginalQty(qty);
+        if (product.product_variant_id && Array.isArray(product.product_variant_id)) {
+          setVariantId(product.product_variant_id[0]);
+        }
+        setOriginalType({ type: product.type || 'consu', is_storable: product.is_storable ?? true });
       } catch (e) {
         console.error('Error parsing product data', e);
       }
@@ -213,7 +229,7 @@ export default function ProductDetailsScreen() {
 
   const handleSave = async () => {
     if (!formData.name) {
-      Alert.alert('Error', 'Product name is required');
+      toast.error('Product name is required');
       return;
     }
 
@@ -231,7 +247,17 @@ export default function ProductDetailsScreen() {
     
     if (submitData.default_code === '') submitData.default_code = false;
     if (submitData.barcode === '') submitData.barcode = false;
-    
+
+    // For existing products: only send type/is_storable when the user actually changed them.
+    // Odoo fires @api.constrains('type','is_storable') whenever these fields appear in the
+    // write dict — even with the same value — and that constraint rejects products with
+    // negative stock ("Available quantity should be set to zero before changing inventory
+    // tracking"). Omitting unchanged fields avoids the false positive.
+    if (!isNew) {
+      if (submitData.type === originalType.type) delete submitData.type;
+      if (submitData.is_storable === originalType.is_storable) delete submitData.is_storable;
+    }
+
     // Extract IDs from Many2one fields
     if (Array.isArray(submitData.categ_id)) {
       submitData.categ_id = submitData.categ_id[0];
@@ -244,17 +270,29 @@ export default function ProductDetailsScreen() {
       success = await createProduct(submitData);
     } else {
       success = await updateProduct(Number(id), submitData);
+      if (success) {
+        // Sync originals so future saves in the same session don't re-send unchanged fields
+        if (formData.type !== undefined || formData.is_storable !== undefined) {
+          setOriginalType({ type: formData.type ?? originalType.type, is_storable: formData.is_storable ?? originalType.is_storable });
+        }
+        if (variantId !== null && qtyAvailable !== originalQty) {
+          try {
+            await OdooProductService.adjustInventoryQty(variantId, qtyAvailable);
+            setOriginalQty(qtyAvailable);
+          } catch (e) {
+            toast.warning('Product saved but inventory adjustment failed. Check permissions.');
+          }
+        }
+      }
     }
-    
+
     setIsLoading(false);
 
     if (success) {
-      Alert.alert('Success', 'Product saved successfully', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      toast.success('Product saved successfully');
+      router.back();
     } else {
-      console.log("Error", success, error);
-      Alert.alert('Error', error || 'There was a problem saving the product');
+      toast.error(error || 'There was a problem saving the product');
     }
   };
 
@@ -272,9 +310,10 @@ export default function ProductDetailsScreen() {
             const success = await archiveProduct(Number(id));
             setIsLoading(false);
             if (success) {
+              toast.success('Product archived successfully');
               router.back();
             } else {
-              Alert.alert('Error', 'There was a problem archiving the product');
+              toast.error('There was a problem archiving the product');
             }
           }
         }
@@ -406,6 +445,25 @@ export default function ProductDetailsScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Inventory and Codes</Text>
+
+          {!isNew && (
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>On Hand Quantity</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: qtyAvailable !== originalQty ? colors.primary : colors.cardBorder }]}
+                value={String(qtyAvailable)}
+                onChangeText={(text) => setQtyAvailable(Number(text) || 0)}
+                keyboardType="numeric"
+                placeholder="0"
+                placeholderTextColor={colors.textSecondary}
+              />
+              {qtyAvailable !== originalQty && (
+                <Text style={{ fontSize: 12, color: colors.primary, marginTop: 2 }}>
+                  Will update stock: {originalQty} → {qtyAvailable}
+                </Text>
+              )}
+            </View>
+          )}
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.textPrimary }]}>Internal Reference</Text>
@@ -718,7 +776,11 @@ export default function ProductDetailsScreen() {
             
             <View style={styles.row}>
               <View style={styles.infoBox}>
-                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>On Hand Quantity</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Forecasted Qty</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{computedData.virtual_available}</Text>
+              </View>
+              <View style={styles.infoBox}>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>On Hand</Text>
                 <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{computedData.qty_available}</Text>
               </View>
               <View style={styles.infoBox}>

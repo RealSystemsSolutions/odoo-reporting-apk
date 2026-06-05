@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/app.store";
 import { logger } from "@/utils/logger";
 
 let _instance: AxiosInstance | null = null;
-// Prevents the cascade: if 5 parallel requests all fail, only one logout fires.
+// Prevents cascade logout: if 5 parallel requests all fail, only the first fires logout.
 let _sessionExpiredTriggered = false;
 
 function isSessionExpired(error: any): boolean {
@@ -30,25 +30,14 @@ const handleSessionExpired = () => {
   });
 };
 
-/**
- * Returns an Axios instance configured for the current tenant's Odoo URL.
- *
- * On Web (Netlify deployment): requests go to /api/odoo/* which netlify.toml
- * proxies same-origin to the Odoo server. This bypasses Safari ITP, which
- * blocks cross-origin cookies and causes immediate session expiry on iOS.
- *
- * On Native: requests go directly to the tenant URL (no CORS restriction).
- */
 export function getOdooClient(): AxiosInstance {
   const tenantUrl = useAppStore.getState().user?.tenant.url ?? "";
 
-  const baseURL = Platform.OS === "web" ? "/api/odoo" : tenantUrl;
-
-  if (!_instance || _instance.defaults.baseURL !== baseURL) {
-    logger.info("ODOO_CLIENT", "Creating Axios instance", { baseURL, platform: Platform.OS });
+  if (!_instance || _instance.defaults.baseURL !== tenantUrl) {
+    logger.info("ODOO_CLIENT", "Creating Axios instance", { baseURL: tenantUrl, platform: Platform.OS });
     axios.defaults.withCredentials = true;
     _instance = axios.create({
-      baseURL,
+      baseURL: tenantUrl,
       timeout: 15_000,
       withCredentials: true,
       headers: {
@@ -57,20 +46,9 @@ export function getOdooClient(): AxiosInstance {
     });
 
     _instance.interceptors.request.use((config) => {
-      const user = useAppStore.getState().user;
-      const sessionId = user?.sessionId;
-
-      if (Platform.OS === "web" && user?.tenant.url) {
-        // Tell the Netlify proxy function where to forward this request.
-        // Each user may have a different Odoo URL (multi-tenant).
-        config.headers["X-Odoo-Base-Url"] = user.tenant.url;
-      }
-
+      const sessionId = useAppStore.getState().user?.sessionId;
       if (sessionId) {
-        // Native: Cookie header works. Web: browser blocks it, but we also
-        // add session_id to the URL which both direct and proxied Odoo accepts.
         config.headers["Cookie"] = `session_id=${sessionId}`;
-
         if (config.url && !config.url.includes("session_id=")) {
           const separator = config.url.includes("?") ? "&" : "?";
           config.url = `${config.url}${separator}session_id=${sessionId}`;
@@ -86,7 +64,6 @@ export function getOdooClient(): AxiosInstance {
           logger.error("ODOO_CLIENT", "HTTP 401 received", { url: err?.config?.url });
           handleSessionExpired();
         }
-
         const odooError = err?.response?.data?.error;
         if (odooError) {
           if (isSessionExpired(odooError)) {
