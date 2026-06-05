@@ -1,5 +1,20 @@
+[build]
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+
+# Dynamic Odoo proxy: all Odoo API calls on web go through here.
+# The Netlify function reads X-Odoo-Base-Url from each request header
+# and forwards to the user's actual Odoo server (multi-tenant safe).
 [[redirects]]
   from = "/api/odoo/*"
-  to = "https://supermarketsmiami.com/:splat"
+  to = "/.netlify/functions/odoo-proxy"
   status = 200
   force = true
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

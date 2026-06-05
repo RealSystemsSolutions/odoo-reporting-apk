@@ -1,12 +1,13 @@
 import axios from "axios";
 import type { AxiosInstance } from "axios";
+import { Platform } from "react-native";
 import { useAppStore } from "@/store/app.store";
+import { logger } from "@/utils/logger";
 
 let _instance: AxiosInstance | null = null;
+// Prevents the cascade: if 5 parallel requests all fail, only one logout fires.
+let _sessionExpiredTriggered = false;
 
-/**
- * Detects if an Odoo error represents a session expiration.
- */
 function isSessionExpired(error: any): boolean {
   if (!error) return false;
   const message = error.data?.message ?? error.message;
@@ -17,24 +18,37 @@ function isSessionExpired(error: any): boolean {
   );
 }
 
-/**
- * Triggers a global logout to redirect the user to login.
- */
 const handleSessionExpired = () => {
-  useAppStore.getState().logout();
+  if (_sessionExpiredTriggered) {
+    logger.debug("ODOO_CLIENT", "Session expiry ignored — logout already in progress");
+    return;
+  }
+  _sessionExpiredTriggered = true;
+  logger.warn("ODOO_CLIENT", "Session expired — logging out", { platform: Platform.OS });
+  useAppStore.getState().logout().finally(() => {
+    _sessionExpiredTriggered = false;
+  });
 };
 
 /**
  * Returns an Axios instance configured for the current tenant's Odoo URL.
- * The baseURL is read dynamically from the Zustand store each time.
+ *
+ * On Web (Netlify deployment): requests go to /api/odoo/* which netlify.toml
+ * proxies same-origin to the Odoo server. This bypasses Safari ITP, which
+ * blocks cross-origin cookies and causes immediate session expiry on iOS.
+ *
+ * On Native: requests go directly to the tenant URL (no CORS restriction).
  */
 export function getOdooClient(): AxiosInstance {
   const tenantUrl = useAppStore.getState().user?.tenant.url ?? "";
 
-  if (!_instance || _instance.defaults.baseURL !== tenantUrl) {
+  const baseURL = Platform.OS === "web" ? "/api/odoo" : tenantUrl;
+
+  if (!_instance || _instance.defaults.baseURL !== baseURL) {
+    logger.info("ODOO_CLIENT", "Creating Axios instance", { baseURL, platform: Platform.OS });
     axios.defaults.withCredentials = true;
     _instance = axios.create({
-      baseURL: tenantUrl,
+      baseURL,
       timeout: 15_000,
       withCredentials: true,
       headers: {
@@ -43,11 +57,18 @@ export function getOdooClient(): AxiosInstance {
     });
 
     _instance.interceptors.request.use((config) => {
-      const sessionId = useAppStore.getState().user?.sessionId;
+      const user = useAppStore.getState().user;
+      const sessionId = user?.sessionId;
+
+      if (Platform.OS === "web" && user?.tenant.url) {
+        // Tell the Netlify proxy function where to forward this request.
+        // Each user may have a different Odoo URL (multi-tenant).
+        config.headers["X-Odoo-Base-Url"] = user.tenant.url;
+      }
+
       if (sessionId) {
-        // On React Native (iOS/Android), setting the Cookie header works.
-        // On Web, the browser blocks manual Cookie headers.
-        // Adding session_id directly to the URL ensures Odoo receives it even if CORS blocks cookies.
+        // Native: Cookie header works. Web: browser blocks it, but we also
+        // add session_id to the URL which both direct and proxied Odoo accepts.
         config.headers["Cookie"] = `session_id=${sessionId}`;
 
         if (config.url && !config.url.includes("session_id=")) {
@@ -61,15 +82,18 @@ export function getOdooClient(): AxiosInstance {
     _instance.interceptors.response.use(
       (res) => res,
       (err) => {
-        // Redirect on 401 Unauthorized
         if (err?.response?.status === 401) {
+          logger.error("ODOO_CLIENT", "HTTP 401 received", { url: err?.config?.url });
           handleSessionExpired();
         }
 
-        // Normalize Odoo JSON-RPC errors
         const odooError = err?.response?.data?.error;
         if (odooError) {
           if (isSessionExpired(odooError)) {
+            logger.error("ODOO_CLIENT", "Odoo session expired in response", {
+              name: odooError.data?.name,
+              url: err?.config?.url,
+            });
             handleSessionExpired();
           }
           return Promise.reject(new Error(odooError.data?.message ?? odooError.message));
@@ -554,6 +578,7 @@ const PRODUCT_FIELDS = [
   "categ_id",
   "type",
   "qty_available",
+  "virtual_available",
   "product_variant_count",
   "image_128",
   "active",
@@ -671,6 +696,45 @@ export const OdooProductService = {
       model: "product.template",
       method: "write",
       args: [[id], { active: false }],
+    });
+  },
+
+  async adjustInventoryQty(variantId: number, qty: number): Promise<void> {
+    const quants = await callOdoo<any[]>({
+      model: "stock.quant",
+      method: "search_read",
+      args: [[["product_id", "=", variantId], ["location_id.usage", "=", "internal"]]],
+      kwargs: { fields: ["id"], limit: 1, order: "id asc" },
+    });
+
+    let quantId: number;
+
+    if (quants.length > 0) {
+      quantId = quants[0].id;
+      await callOdoo({
+        model: "stock.quant",
+        method: "write",
+        args: [[quantId], { inventory_quantity: qty }],
+      });
+    } else {
+      const locations = await callOdoo<any[]>({
+        model: "stock.location",
+        method: "search_read",
+        args: [[["usage", "=", "internal"]]],
+        kwargs: { fields: ["id"], limit: 1, order: "id asc" },
+      });
+      if (!locations.length) throw new Error("No internal stock location found");
+      quantId = await callOdoo<number>({
+        model: "stock.quant",
+        method: "create",
+        args: [{ product_id: variantId, location_id: locations[0].id, inventory_quantity: qty }],
+      });
+    }
+
+    await callOdoo({
+      model: "stock.quant",
+      method: "action_apply_inventory",
+      args: [[quantId]],
     });
   },
 };
