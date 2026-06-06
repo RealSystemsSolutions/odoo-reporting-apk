@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import type { OdooUser } from '@/types/odoo.types';
 import { logger } from '@/utils/logger';
 
@@ -20,11 +21,19 @@ interface OdooSessionResponse {
  * Fetches the list of available databases from an Odoo instance.
  */
 export async function fetchDatabases(tenantUrl: string): Promise<string[]> {
-  const url = `${tenantUrl.replace(/\/$/, '')}/web/database/list`;
+  const originalUrl = `${tenantUrl.replace(/\/$/, '')}/web/database/list`;
+  let url = originalUrl;
+  let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  if (Platform.OS === 'web') {
+    url = '/.netlify/functions/proxy';
+    headers['x-target-url'] = originalUrl;
+  }
+
   const response = await axios.post(
     url,
     { jsonrpc: '2.0', method: 'call', id: 1, params: {} },
-    { timeout: 10_000, headers: { 'Content-Type': 'application/json' } },
+    { timeout: 10_000, headers },
   );
   const body = response.data as Record<string, unknown>;
   if (Array.isArray(body.result)) return body.result as string[];
@@ -38,7 +47,17 @@ export async function fetchDatabases(tenantUrl: string): Promise<string[]> {
 export async function authenticate(params: AuthenticateParams): Promise<OdooUser> {
   const { tenantUrl, db, login, password } = params;
 
-  const url = `${tenantUrl.replace(/\/$/, '')}/web/session/authenticate`;
+  const originalUrl = `${tenantUrl.replace(/\/$/, '')}/web/session/authenticate`;
+  let url = originalUrl;
+  let headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/plain, */*',
+  };
+
+  if (Platform.OS === 'web') {
+    url = '/.netlify/functions/proxy';
+    headers['x-target-url'] = originalUrl;
+  }
 
   logger.info('AUTH', 'Sending authenticate request', { url, db, login });
 
@@ -54,10 +73,7 @@ export async function authenticate(params: AuthenticateParams): Promise<OdooUser
       },
       {
         timeout: 15_000,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json, text/plain, */*',
-        },
+        headers,
       }
     );
     data = response.data;

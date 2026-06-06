@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { AxiosInstance } from "axios";
+import { Platform } from "react-native";
 import { useAppStore } from "@/store/app.store";
 
 let _instance: AxiosInstance | null = null;
@@ -44,17 +45,32 @@ export function getOdooClient(): AxiosInstance {
 
     _instance.interceptors.request.use((config) => {
       const sessionId = useAppStore.getState().user?.sessionId;
-      if (sessionId) {
-        // On React Native (iOS/Android), setting the Cookie header works.
-        // On Web, the browser blocks manual Cookie headers.
-        // Adding session_id directly to the URL ensures Odoo receives it even if CORS blocks cookies.
-        config.headers["Cookie"] = `session_id=${sessionId}`;
 
-        if (config.url && !config.url.includes("session_id=")) {
-          const separator = config.url.includes("?") ? "&" : "?";
-          config.url = `${config.url}${separator}session_id=${sessionId}`;
+      if (Platform.OS === 'web') {
+        const originalUrl = config.baseURL 
+          ? `${config.baseURL.replace(/\/$/, '')}${config.url}`
+          : config.url;
+        
+        config.baseURL = '';
+        config.url = '/.netlify/functions/proxy';
+        
+        // Use Headers type assertion or assign carefully
+        if (config.headers) {
+          config.headers['x-target-url'] = originalUrl;
+          if (sessionId) {
+            config.headers['x-session-id'] = sessionId;
+          }
+        }
+      } else {
+        if (sessionId) {
+          config.headers["Cookie"] = `session_id=${sessionId}`;
+          if (config.url && !config.url.includes("session_id=")) {
+            const separator = config.url.includes("?") ? "&" : "?";
+            config.url = `${config.url}${separator}session_id=${sessionId}`;
+          }
         }
       }
+      
       return config;
     });
 

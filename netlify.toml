@@ -1,5 +1,9 @@
+[build]
+  publish = "dist"
+  functions = "netlify/functions"
+
+# Redirigir todas las rutas a index.html para soportar React Router / Expo Router
 [[redirects]]
-  from = "/api/odoo/*"
-  to = "https://supermarketsmiami.com/:splat"
+  from = "/*"
+  to = "/index.html"
   status = 200
-  force = true
