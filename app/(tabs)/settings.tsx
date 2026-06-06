@@ -1,4 +1,4 @@
-import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
 import Text from '@/components/ui/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppStore } from '@/store/app.store';
@@ -14,6 +14,16 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
 
   const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      const confirmLogout = window.confirm('Are you sure you want to log out?');
+      if (confirmLogout) {
+        logout().then(() => {
+          router.replace('/(auth)/login');
+        });
+      }
+      return;
+    }
+
     Alert.alert(
       'Logout',
       'Are you sure you want to log out?',
@@ -24,7 +34,10 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            router.replace('/(auth)/login');
+            // Usamos un ligero timeout para evitar el race condition con el _layout.tsx en iOS
+            setTimeout(() => {
+              router.replace('/(auth)/login');
+            }, 100);
           },
         },
       ]

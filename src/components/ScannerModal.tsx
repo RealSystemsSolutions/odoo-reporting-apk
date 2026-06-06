@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, StyleSheet, TouchableOpacity, View, SafeAreaView } from 'react-native';
+import { Modal, StyleSheet, TouchableOpacity, View, SafeAreaView, Platform } from 'react-native';
 import Text from '@/components/ui/Text';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,8 +15,16 @@ export default function ScannerModal({ visible, onClose, onScan }: ScannerModalP
   const [permission, requestPermission] = useCameraPermissions();
   const { colors } = useTheme();
 
-  const handleBarcodeScanned = ({ data }: { data: string }) => {
-    onScan(data);
+  const handleBarcodeScanned = ({ type, data }: { type: string; data: string }) => {
+    let normalizedData = data;
+
+    // Solución al problema en iOS donde los códigos UPC-A (12 dígitos)
+    // se leen como EAN-13 añadiendo un "0" al principio (13 dígitos).
+    if (data.length === 13 && data.startsWith('0')) {
+      normalizedData = data.substring(1);
+    }
+
+    onScan(normalizedData);
     onClose();
   };
 

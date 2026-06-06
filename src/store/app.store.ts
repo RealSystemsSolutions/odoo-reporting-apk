@@ -43,7 +43,11 @@ const deleteStorageItemAsync = async (key: string) => {
       console.error('Local storage is unavailable:', e);
     }
   } else {
-    await SecureStore.deleteItemAsync(key);
+    try {
+      await SecureStore.deleteItemAsync(key);
+    } catch (e) {
+      console.error('SecureStore delete error:', e);
+    }
   }
 };
 
