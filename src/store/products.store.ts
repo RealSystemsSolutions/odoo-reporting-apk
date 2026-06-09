@@ -13,6 +13,7 @@ interface ProductsState {
   fetchProducts: (refresh?: boolean) => Promise<void>;
   createProduct: (data: Partial<OdooProduct>) => Promise<boolean>;
   updateProduct: (id: number, data: Partial<OdooProduct>) => Promise<boolean>;
+  updateProductStock: (variantId: number, qty: number) => Promise<boolean>;
   archiveProduct: (id: number) => Promise<boolean>;
 }
 
@@ -46,7 +47,7 @@ export const useProductsStore = create<ProductsState>((set, get) => ({
         isLoading: false,
       });
     } catch (err: any) {
-      set({ error: err.message || 'Error fetching products', isLoading: false });
+      set({ error: err.message || 'Error fetching products', isLoading: false, hasMore: false });
     }
   },
 
@@ -54,7 +55,8 @@ export const useProductsStore = create<ProductsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await OdooProductService.createProduct(data);
-      await get().fetchProducts(true); // Refresh list
+      set({ isLoading: false }); // Liberar flag antes de hacer fetch
+      await get().fetchProducts(true);
       return true;
     } catch (err: any) {
       set({ error: err.message || 'Error creating product', isLoading: false });
@@ -66,10 +68,24 @@ export const useProductsStore = create<ProductsState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await OdooProductService.updateProduct(id, data);
-      await get().fetchProducts(true); // Refresh list
+      set({ isLoading: false }); // Liberar flag antes de hacer fetch
+      await get().fetchProducts(true);
       return true;
     } catch (err: any) {
       set({ error: err.message || 'Error updating product', isLoading: false });
+      return false;
+    }
+  },
+
+  updateProductStock: async (variantId: number, qty: number) => {
+    set({ isLoading: true, error: null });
+    try {
+      await OdooProductService.updateProductStock(variantId, qty);
+      set({ isLoading: false }); // Liberar flag antes de hacer fetch
+      await get().fetchProducts(true);
+      return true;
+    } catch (err: any) {
+      set({ error: err.message || 'Error updating product stock', isLoading: false });
       return false;
     }
   },

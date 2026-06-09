@@ -564,7 +564,6 @@ export const OdooDashboardService = {
 const PRODUCT_FIELDS = [
   "name",
   "default_code",
-  "barcode",
   "list_price",
   "standard_price",
   "categ_id",
@@ -658,6 +657,79 @@ export const OdooProductService = {
       return 0;
     } catch (e) {
       console.error("Create product error:", e);
+      throw e;
+    }
+  },
+
+  async updateProductStock(
+    productVariantId: number,
+    newQty: number
+  ): Promise<boolean> {
+    try {
+      let quantId = 0;
+      // 1. Buscamos si ya existe un quant para este producto en una ubicación interna
+      const existingQuants = await callOdoo<any[]>({
+        model: "stock.quant",
+        method: "search_read",
+        args: [
+          [
+            ["product_id", "=", productVariantId],
+            ["location_id.usage", "=", "internal"],
+          ],
+        ],
+        kwargs: { limit: 1, fields: ["id", "location_id"] },
+      });
+
+      if (existingQuants && existingQuants.length > 0) {
+        quantId = existingQuants[0].id;
+        // Escribimos la nueva cantidad en el quant existente
+        await callOdoo<boolean>({
+          model: "stock.quant",
+          method: "write",
+          args: [[quantId], { inventory_quantity: newQty }],
+        });
+      } else {
+        // 2. Si no existe, buscamos una ubicación interna por defecto
+        const locations = await callOdoo<any[]>({
+          model: "stock.location",
+          method: "search_read",
+          args: [[["usage", "=", "internal"]]],
+          kwargs: { limit: 1, fields: ["id"] },
+        });
+
+        if (!locations || locations.length === 0) {
+          throw new Error("No se encontró una ubicación interna para el stock.");
+        }
+
+        const locationId = locations[0].id;
+
+        // Creamos el quant con la nueva cantidad
+        const created = await callOdoo<any>({
+          model: "stock.quant",
+          method: "create",
+          args: [
+            {
+              product_id: productVariantId,
+              location_id: locationId,
+              inventory_quantity: newQty,
+            },
+          ],
+        });
+        quantId = Array.isArray(created)
+          ? created[0].id || created[0]
+          : created.id || created;
+      }
+
+      // 3. Aplicamos el inventario para que Odoo registre el movimiento
+      await callOdoo<any>({
+        model: "stock.quant",
+        method: "action_apply_inventory",
+        args: [[quantId]],
+      });
+
+      return true;
+    } catch (e) {
+      console.error("Error updating product stock:", e);
       throw e;
     }
   },

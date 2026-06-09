@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TextInput, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Switch } from 'react-native';
+import { View, StyleSheet, TextInput, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Switch, Platform } from 'react-native';
 import Text from '@/components/ui/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,10 +18,11 @@ export default function ProductDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
 
-  const { createProduct, updateProduct, archiveProduct, error } = useProductsStore();
+  const { createProduct, updateProduct, updateProductStock, archiveProduct, error } = useProductsStore();
 
   const [isLoading, setIsLoading] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
+  const [newStockQuantity, setNewStockQuantity] = useState<string>('');
 
   const [formData, setFormData] = useState<Partial<OdooProduct>>({
     name: '',
@@ -35,13 +36,13 @@ export default function ProductDetailsScreen() {
     sale_ok: true,
     purchase_ok: true,
     active: true,
-    
+
     // Restricciones
     food_stamp: false,
     wic: false,
     fsa: false,
     age_verification: false,
-    
+
     // Precios / Balanza
     scalable: false,
     open_price: false,
@@ -49,7 +50,7 @@ export default function ProductDetailsScreen() {
     prefix_price: false,
     wt_format: false,
     mix_and_match: false,
-    
+
     // Cocina / Impresion
     is_kitchen: false,
     office_copy: false,
@@ -57,7 +58,7 @@ export default function ProductDetailsScreen() {
     print2: false,
     print3: false,
     print4: false,
-    
+
     // Promociones y Modificadores
     promotion_description: '',
     promotion_qty: 0,
@@ -65,7 +66,7 @@ export default function ProductDetailsScreen() {
     modifier_1: '',
     modifier_2: '',
     modifier_3: '',
-    
+
     // POS Atributos
     visible: true,
     taxable: true,
@@ -110,26 +111,26 @@ export default function ProductDetailsScreen() {
           type: product.type || 'consu',
           is_storable: product.is_storable || false,
           categ_id: product.categ_id || false,
-          
+
           food_stamp: product.food_stamp || false,
           wic: product.wic || false,
           fsa: product.fsa || false,
           age_verification: product.age_verification || false,
-          
+
           scalable: product.scalable || false,
           open_price: product.open_price || false,
           rollup_pricing: product.rollup_pricing || false,
           prefix_price: product.prefix_price || false,
           wt_format: product.wt_format || false,
           mix_and_match: product.mix_and_match || false,
-          
+
           is_kitchen: product.is_kitchen || false,
           office_copy: product.office_copy || false,
           print1: product.print1 || false,
           print2: product.print2 || false,
           print3: product.print3 || false,
           print4: product.print4 || false,
-          
+
           // Promociones
           promotion_description: product.promotion_description || '',
           promotion_qty: product.promotion_qty || 0,
@@ -137,7 +138,7 @@ export default function ProductDetailsScreen() {
           modifier_1: product.modifier_1 || '',
           modifier_2: product.modifier_2 || '',
           modifier_3: product.modifier_3 || '',
-          
+
           taxable: product.taxable !== undefined ? product.taxable : true,
           tax_amount: product.tax_amount || 0,
           visible: product.visible !== undefined ? product.visible : true,
@@ -174,10 +175,22 @@ export default function ProductDetailsScreen() {
   }, [isNew, barcode]);
 
   const handleChange = (field: keyof OdooProduct, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: ['list_price', 'standard_price', 'margin', 'alert_quantity', 'promotion_qty', 'promotion_price', 'tax_amount'].includes(field) ? Number(value) || 0 : value,
-    }));
+    setFormData(prev => {
+      let finalValue = value;
+      if (['list_price', 'standard_price', 'margin', 'alert_quantity', 'promotion_qty', 'promotion_price', 'tax_amount'].includes(field)) {
+        if (typeof value === 'string') {
+          finalValue = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+          const parts = finalValue.split('.');
+          if (parts.length > 2) {
+            finalValue = parts[0] + '.' + parts.slice(1).join('');
+          }
+        }
+      }
+      return {
+        ...prev,
+        [field]: finalValue,
+      };
+    });
   };
 
   // Shared fields between product.template and product.category
@@ -219,19 +232,30 @@ export default function ProductDetailsScreen() {
 
     setIsLoading(true);
     let success = false;
-    
+
     // Clean empty strings to false for Odoo
     const submitData: any = { ...formData };
+    
+    // Parse numeric fields
+    const numericFields = ['list_price', 'standard_price', 'margin', 'alert_quantity', 'promotion_qty', 'promotion_price', 'tax_amount'];
+    numericFields.forEach(field => {
+      if (submitData[field] !== undefined && submitData[field] !== '') {
+        submitData[field] = Number(submitData[field]) || 0;
+      } else if (submitData[field] === '') {
+        submitData[field] = 0;
+      }
+    });
+
     delete submitData.tax_amount; // Exclude until confirmed
     delete submitData.margin;     // Usually computed
-    
+
     // Ensure basic Odoo flags
     submitData.sale_ok = true;
     submitData.purchase_ok = true;
-    
+
     if (submitData.default_code === '') submitData.default_code = false;
     if (submitData.barcode === '') submitData.barcode = false;
-    
+
     // Extract IDs from Many2one fields
     if (Array.isArray(submitData.categ_id)) {
       submitData.categ_id = submitData.categ_id[0];
@@ -245,16 +269,56 @@ export default function ProductDetailsScreen() {
     } else {
       success = await updateProduct(Number(id), submitData);
     }
-    
+
+    // Si la actualización principal fue exitosa, validamos si se cambió el stock
+    let stockSuccess = true;
+    if (success && newStockQuantity !== '') {
+      const newQty = Number(newStockQuantity);
+      if (!isNaN(newQty) && newQty !== computedData.qty_available) {
+        // Necesitamos el product_variant_id. Si está disponible en computedData o en productData original:
+        const product = productData ? JSON.parse(productData) : null;
+        let variantId = 0;
+        if (product && product.product_variant_id) {
+          variantId = Array.isArray(product.product_variant_id) ? product.product_variant_id[0] : product.product_variant_id;
+        }
+
+        if (variantId) {
+          stockSuccess = await updateProductStock(variantId, newQty);
+        } else {
+          console.warn("No variant ID available to update stock");
+          stockSuccess = false;
+        }
+      }
+    }
+
     setIsLoading(false);
 
-    if (success) {
-      Alert.alert('Success', 'Product saved successfully', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+    if (success && stockSuccess) {
+      if (Platform.OS === 'web') {
+        window.alert('Product saved successfully');
+        router.back();
+      } else {
+        Alert.alert('Success', 'Product saved successfully', [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      }
+    } else if (success && !stockSuccess) {
+      const msg = `Product info saved, but stock update failed: \n\n${useProductsStore.getState().error || 'Cannot update stock for consumables or services.'}`;
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+        router.back();
+      } else {
+        Alert.alert('Partial Success', msg, [
+          { text: 'OK', onPress: () => router.back() }
+        ]);
+      }
     } else {
       console.log("Error", success, error);
-      Alert.alert('Error', error || 'There was a problem saving the product');
+      if (Platform.OS === 'web') {
+        window.alert(error || 'There was a problem saving the product');
+      } else {
+        Alert.alert('Error', error || 'There was a problem saving the product');
+      }
     }
   };
 
@@ -264,8 +328,8 @@ export default function ProductDetailsScreen() {
       'Are you sure you want to archive this product? (It will be hidden from active lists)',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Archive', 
+        {
+          text: 'Archive',
           style: 'destructive',
           onPress: async () => {
             setIsLoading(true);
@@ -304,9 +368,9 @@ export default function ProductDetailsScreen() {
         {!isNew && (
           <View style={styles.imageContainer}>
             {computedData.image_128 ? (
-              <Image 
-                source={{ uri: `data:image/png;base64,${computedData.image_128}` }} 
-                style={styles.productImage} 
+              <Image
+                source={{ uri: `data:image/png;base64,${computedData.image_128}` }}
+                style={styles.productImage}
               />
             ) : (
               <View style={[styles.productImage, styles.genericImageContainer, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
@@ -318,8 +382,8 @@ export default function ProductDetailsScreen() {
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Basic Information</Text>
-          
-      
+
+
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.textPrimary }]}>Product Name *</Text>
             <TextInput
@@ -331,7 +395,7 @@ export default function ProductDetailsScreen() {
             />
           </View>
 
-              <View style={styles.switchRow}>
+          <View style={styles.switchRow}>
             <Text style={[styles.label, { color: colors.textPrimary, flex: 1 }]}>Visible in POS</Text>
             <Switch value={formData.visible} onValueChange={(val) => handleChange('visible', val)} trackColor={{ false: colors.cardBorder, true: colors.primary }} />
           </View>
@@ -353,7 +417,7 @@ export default function ProductDetailsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
                 value={String(formData.tax_amount || '')}
                 onChangeText={(text) => handleChange('tax_amount', text)}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -368,7 +432,7 @@ export default function ProductDetailsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
                 value={String(formData.list_price || '')}
                 onChangeText={(text) => handleChange('list_price', text)}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -380,7 +444,7 @@ export default function ProductDetailsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
                 value={String(formData.standard_price || '')}
                 onChangeText={(text) => handleChange('standard_price', text)}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -389,7 +453,7 @@ export default function ProductDetailsScreen() {
 
           <View style={{ marginTop: 8 }}>
             <Text style={[styles.label, { color: colors.textPrimary, marginBottom: 8 }]}>Category / Department</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.selectorBtn, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
               onPress={() => setCategoryModalVisible(true)}
             >
@@ -428,7 +492,7 @@ export default function ProductDetailsScreen() {
                 placeholder="Scan or enter..."
                 placeholderTextColor={colors.textSecondary}
               />
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.scanButton, { backgroundColor: colors.primary }]}
                 onPress={() => setScannerVisible(true)}
               >
@@ -437,23 +501,55 @@ export default function ProductDetailsScreen() {
             </View>
           </View>
 
+          <View style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 1, opacity: 0.7 }]}>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>Current Stock</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
+                value={String(computedData.qty_available)}
+                editable={false}
+                selectTextOnFocus={false}
+              />
+            </View>
+            <View style={{ width: 12 }} />
+            <View style={[styles.inputGroup, { flex: 1, opacity: formData.is_storable ? 1 : 0.5 }]}>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>Update Stock To</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: formData.is_storable ? colors.background : colors.cardBorder,
+                    color: colors.textPrimary,
+                    borderColor: formData.is_storable ? colors.primary : colors.cardBorder
+                  }
+                ]}
+                value={newStockQuantity}
+                onChangeText={setNewStockQuantity}
+                keyboardType="decimal-pad"
+                placeholder={formData.is_storable ? String(computedData.qty_available) : 'N/A'}
+                placeholderTextColor={colors.textSecondary}
+                editable={formData.is_storable}
+              />
+            </View>
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.textPrimary }]}>Product Type</Text>
             <View style={[styles.segmentedControl, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-              <TouchableOpacity 
-                style={[styles.segment, formData.type === 'consu' && formData.is_storable === true && { backgroundColor: colors.primary }]} 
+              <TouchableOpacity
+                style={[styles.segment, formData.type === 'consu' && formData.is_storable === true && { backgroundColor: colors.primary }]}
                 onPress={() => { handleChange('type', 'consu'); handleChange('is_storable', true); }}
               >
                 <Text style={[styles.segmentText, { color: formData.type === 'consu' && formData.is_storable === true ? '#FFF' : colors.textPrimary }]}>Storable</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.segment, formData.type === 'consu' && formData.is_storable === false && { backgroundColor: colors.primary }]} 
+              <TouchableOpacity
+                style={[styles.segment, formData.type === 'consu' && formData.is_storable === false && { backgroundColor: colors.primary }]}
                 onPress={() => { handleChange('type', 'consu'); handleChange('is_storable', false); }}
               >
                 <Text style={[styles.segmentText, { color: formData.type === 'consu' && formData.is_storable === false ? '#FFF' : colors.textPrimary }]}>Consumable</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.segment, formData.type === 'service' && { backgroundColor: colors.primary }]} 
+              <TouchableOpacity
+                style={[styles.segment, formData.type === 'service' && { backgroundColor: colors.primary }]}
                 onPress={() => { handleChange('type', 'service'); handleChange('is_storable', false); }}
               >
                 <Text style={[styles.segmentText, { color: formData.type === 'service' ? '#FFF' : colors.textPrimary }]}>Service</Text>
@@ -529,7 +625,7 @@ export default function ProductDetailsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
                 value={String(formData.promotion_qty || '')}
                 onChangeText={(text) => handleChange('promotion_qty', text)}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -541,7 +637,7 @@ export default function ProductDetailsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
                 value={String(formData.promotion_price || '')}
                 onChangeText={(text) => handleChange('promotion_price', text)}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 placeholder="0.00"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -621,7 +717,7 @@ export default function ProductDetailsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
                 value={String(formData.margin || '')}
                 onChangeText={(text) => handleChange('margin', text)}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -633,13 +729,13 @@ export default function ProductDetailsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.cardBorder }]}
                 value={String(formData.alert_quantity || '')}
                 onChangeText={(text) => handleChange('alert_quantity', text)}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
           </View>
-          
+
           <View style={[styles.inputGroup, { marginTop: 8 }]}>
             <Text style={[styles.label, { color: colors.textPrimary }]}>Group (Group ID)</Text>
             <TextInput
@@ -697,7 +793,7 @@ export default function ProductDetailsScreen() {
 
           <View style={{ marginTop: 8 }}>
             <Text style={[styles.label, { color: colors.textPrimary, marginBottom: 8 }]}>Related Product (Sibling Item)</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.selectorBtn, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
               onPress={() => setProductModalVisible(true)}
             >
@@ -715,7 +811,7 @@ export default function ProductDetailsScreen() {
         {!isNew && (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}>
             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Calculated Information (Read Only)</Text>
-            
+
             <View style={styles.row}>
               <View style={styles.infoBox}>
                 <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>On Hand Quantity</Text>
@@ -734,20 +830,20 @@ export default function ProductDetailsScreen() {
           </View>
         )}
 
-        {!isNew && (
-          <TouchableOpacity 
-            style={[styles.deleteButton, { borderColor: '#EF4444' }]} 
+        {/* (
+          <TouchableOpacity
+            style={[styles.deleteButton, { borderColor: '#EF4444' }]}
             onPress={handleDelete}
           >
             <Ionicons name="archive-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
             <Text style={styles.deleteButtonText}>Archive Product</Text>
           </TouchableOpacity>
-        )}
+        ) */}
 
       </ScrollView>
 
-      <ScannerModal 
-        visible={scannerVisible} 
+      <ScannerModal
+        visible={scannerVisible}
         onClose={() => setScannerVisible(false)}
         onScan={(data) => {
           handleChange('barcode', data);
@@ -765,8 +861,8 @@ export default function ProductDetailsScreen() {
           }
         }}
       />
-      <ProductSelectorModal 
-        visible={productModalVisible} 
+      <ProductSelectorModal
+        visible={productModalVisible}
         onClose={() => setProductModalVisible(false)}
         onSelect={(product) => {
           handleChange('sibling_item', [product.id, product.name]);
