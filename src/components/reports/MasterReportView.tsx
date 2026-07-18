@@ -21,7 +21,7 @@ export default function MasterReportView({ data }: MasterReportViewProps) {
       
       <View style={[styles.tableHeader, { borderBottomColor: colors.cardBorder + '40' }]}>
         {columns.map((col, i) => (
-          <Text key={i} style={[styles.headerCell, { color: colors.textSecondary, flex: i === 0 ? 2 : 1, textAlign: i === 0 ? 'left' : 'right' }]}>
+          <Text key={i} style={[styles.headerCell, { color: colors.textSecondary, flex: i === 0 ? 2 : 1, textAlign: 'left' }]}>
             {col}
           </Text>
         ))}
@@ -56,8 +56,8 @@ export default function MasterReportView({ data }: MasterReportViewProps) {
         (item) => (
           <>
             <Text style={[styles.cell, { color: colors.textPrimary, flex: 2 }]}>{item.description}</Text>
-            <Text style={[styles.cell, { color: colors.textSecondary, textAlign: 'right' }]}>{item.count}</Text>
-            <Text style={[styles.cell, { color: colors.primary, fontWeight: '700', textAlign: 'right' }]}>
+            <Text style={[styles.cell, { color: colors.textSecondary }]}>{item.count}</Text>
+            <Text style={[styles.cell, { color: colors.primary, fontWeight: '700' }]}>
               ${(item.amount || 0).toFixed(2)}
             </Text>
           </>
@@ -73,10 +73,9 @@ export default function MasterReportView({ data }: MasterReportViewProps) {
         (item) => (
           <>
             <Text style={[styles.cell, { color: colors.textPrimary, flex: 2 }]} numberOfLines={1}>{item.category_name}</Text>
-            <Text style={[styles.cell, { color: colors.textSecondary, textAlign: 'right' }]}>{item.number_sold}</Text>
-            <Text style={[styles.cell, { color: colors.textPrimary, textAlign: 'right' }]}>${(item.gross_revenue || 0).toFixed(2)}</Text>
-            <Text style={[styles.cell, { color: colors.textSecondary, textAlign: 'right', fontSize: 10 }]}>{(item.gross_revenue_percent || 0).toFixed(1)}%</Text>
-          </>
+            <Text style={[styles.cell, { color: colors.textSecondary }]}>{item.number_sold}</Text>
+            <Text style={[styles.cell, { color: colors.primary, fontWeight: '700' }]}>${(item.gross_revenue || 0).toFixed(2)}</Text>
+           </>
         )
       )}
 
@@ -89,8 +88,8 @@ export default function MasterReportView({ data }: MasterReportViewProps) {
         (item) => (
           <>
             <Text style={[styles.cell, { color: colors.textPrimary, flex: 2 }]}>{item.name}</Text>
-            <Text style={[styles.cell, { color: colors.textSecondary, textAlign: 'right' }]}>{item.count_payment}</Text>
-            <Text style={[styles.cell, { color: colors.primary, fontWeight: '600', textAlign: 'right' }]}>
+            <Text style={[styles.cell, { color: colors.textSecondary }]}>{item.count_payment}</Text>
+            <Text style={[styles.cell, { color: colors.primary, fontWeight: '600' }]}>
               ${(item.total || 0).toFixed(2)}
             </Text>
           </>
@@ -106,8 +105,8 @@ export default function MasterReportView({ data }: MasterReportViewProps) {
         (item) => (
           <>
             <Text style={[styles.cell, { color: colors.textPrimary, flex: 2 }]}>{item.name}</Text>
-            <Text style={[styles.cell, { color: colors.textSecondary, textAlign: 'right' }]}>{item.count_payment}</Text>
-            <Text style={[styles.cell, { color: colors.textPrimary, textAlign: 'right' }]}>
+            <Text style={[styles.cell, { color: colors.textSecondary }]}>{item.count_payment}</Text>
+            <Text style={[styles.cell, { color: colors.primary, fontWeight: '600' }]}>
               ${(item.total || 0).toFixed(2)}
             </Text>
           </>

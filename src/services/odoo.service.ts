@@ -564,6 +564,7 @@ export const OdooDashboardService = {
 const PRODUCT_FIELDS = [
   "name",
   "default_code",
+  "barcode",
   "list_price",
   "standard_price",
   "categ_id",
@@ -620,7 +621,7 @@ export const OdooProductService = {
       domain.push("|", "|");
       domain.push(["name", "ilike", search]);
       domain.push(["default_code", "ilike", search]);
-      domain.push(["barcode", "=", search]);
+      domain.push(["barcode", "ilike", search]);
     }
 
     return await callOdoo<OdooProduct[]>({
