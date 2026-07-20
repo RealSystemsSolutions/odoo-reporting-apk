@@ -12,7 +12,7 @@ export interface OdooUser {
   tenant: OdooTenant;
 }
 
-export type ReportingPeriod = 'yesterday' | 'today' | 'week' | 'month';
+export type ReportingPeriod = "yesterday" | "today" | "week" | "month";
 
 // ─── KPI ───────────────────────────────────────────────────────────────────────
 
@@ -20,7 +20,7 @@ export interface KpiData {
   id: string;
   label: string;
   value: number;
-  unit: '$' | '%' | '#';
+  unit: "$" | "%" | "#";
   /** Percentage change vs previous period */
   change: number;
   icon: string;
@@ -50,7 +50,7 @@ export interface CategorySlice {
 
 // ─── Transactions ──────────────────────────────────────────────────────────────
 
-export type TransactionState = 'paid' | 'pending' | 'overdue' | 'draft';
+export type TransactionState = "paid" | "pending" | "overdue" | "draft";
 
 export interface Transaction {
   id: number;
@@ -90,8 +90,12 @@ export interface OdooProduct {
   sale_ok?: boolean;
   purchase_ok?: boolean;
   product_variant_id?: [number, string] | false;
+
   virtual_available?: number;
-  
+
+  // Populated via enrichProductsWithPrintLabels from product.product (variant)
+  print_label?: boolean;
+
   // Custom fields (POS / Supermarket)
   food_stamp?: boolean;
   wic?: boolean;
@@ -179,7 +183,7 @@ export interface OdooOrderLine {
   price_unit: number;
   price_subtotal: number;
   tax_id?: number[];
-  
+
   // Custom POS fields
   pos_product_order_id?: string;
   pos_invoice_id?: string;
@@ -193,9 +197,9 @@ export interface OdooOrder {
   partner_id: [number, string] | false;
   date_order: string | false;
   amount_total: number;
-  state: 'draft' | 'sent' | 'sale' | 'done' | 'cancel';
+  state: "draft" | "sent" | "sale" | "done" | "cancel";
   order_line: number[];
-  
+
   // Custom POS fields
   pos_receipt_number?: string;
   pos_payment_date?: string;
@@ -246,7 +250,7 @@ export interface SalesMarginReport {
 
 // ─── Reports: Inventory Turnover & Stock Alerts ────────────────────────────────
 
-export type StockHealthStatus = 'critical' | 'warning' | 'healthy';
+export type StockHealthStatus = "critical" | "warning" | "healthy";
 
 export interface InventoryItem {
   id: number;
@@ -308,7 +312,7 @@ export interface PosHourlySales {
 export interface PosSessionMetrics {
   sessionId: number;
   sessionName: string;
-  status: 'open' | 'closed';
+  status: "open" | "closed";
   totalSales: number;
   transactionCount: number;
   averageTicket: number;
@@ -362,4 +366,3 @@ export interface MasterReportData {
   financial_line_ids: MasterReportFinancialLine[];
   display_name: string;
 }
-
