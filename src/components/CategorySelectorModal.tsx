@@ -34,7 +34,7 @@ export default function CategorySelectorModal({ visible, onClose, onSelect }: Ca
   const fetchCategories = async (query = '') => {
     setLoading(true);
     try {
-      const data = await OdooCategoryService.getCategories(30, 0, query);
+      const data = await OdooCategoryService.getCategories(100, 0, query);
       setCategories(data);
     } catch (e) {
       console.error(e);
@@ -75,7 +75,7 @@ export default function CategorySelectorModal({ visible, onClose, onSelect }: Ca
             keyExtractor={item => item.id.toString()}
             contentContainerStyle={styles.list}
             renderItem={({ item }) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.item, { backgroundColor: colors.card, borderColor: colors.cardBorder }]}
                 onPress={() => { onSelect(item); onClose(); }}
               >
