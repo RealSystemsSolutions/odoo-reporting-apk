@@ -89,8 +89,8 @@ export interface OdooProduct {
   active: boolean;
   sale_ok?: boolean;
   purchase_ok?: boolean;
-  product_variant_id?: [number, string] | false;
-  
+  product_variant_id?: [number, string];
+
   // Custom fields (POS / Supermarket)
   food_stamp?: boolean;
   wic?: boolean;
@@ -127,6 +127,12 @@ export interface OdooProduct {
   group_id?: string;
   label_description?: string;
   sibling_item?: [number, string] | false;
+  virtual_available?: number;
+  // Populated via enrichProductsWithPrintLabels from product.product (variant)
+  print_label?: boolean;
+  last_label_price?: number;
+  last_label_date?: string;
+
 }
 
 export interface OdooProductCategory {
@@ -178,7 +184,7 @@ export interface OdooOrderLine {
   price_unit: number;
   price_subtotal: number;
   tax_id?: number[];
-  
+
   // Custom POS fields
   pos_product_order_id?: string;
   pos_invoice_id?: string;
@@ -194,7 +200,7 @@ export interface OdooOrder {
   amount_total: number;
   state: 'draft' | 'sent' | 'sale' | 'done' | 'cancel';
   order_line: number[];
-  
+
   // Custom POS fields
   pos_receipt_number?: string;
   pos_payment_date?: string;

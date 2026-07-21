@@ -47,13 +47,13 @@ export function getOdooClient(): AxiosInstance {
       const sessionId = useAppStore.getState().user?.sessionId;
 
       if (Platform.OS === 'web') {
-        const originalUrl = config.baseURL 
+        const originalUrl = config.baseURL
           ? `${config.baseURL.replace(/\/$/, '')}${config.url}`
           : config.url;
-        
+
         config.baseURL = '';
         config.url = '/.netlify/functions/proxy';
-        
+
         // Use Headers type assertion or assign carefully
         if (config.headers) {
           config.headers['x-target-url'] = originalUrl;
@@ -70,7 +70,7 @@ export function getOdooClient(): AxiosInstance {
           }
         }
       }
-      
+
       return config;
     });
 
@@ -611,6 +611,64 @@ const PRODUCT_FIELDS = [
 ];
 
 export const OdooProductService = {
+  /**
+   * Enriches an array of products from product.template with print_label
+   * fetched from product.product (variant), since print_label only exists
+   * on the variant model, not on the template.
+   */
+  async enrichProductsWithPrintLabels(
+      products: OdooProduct[],
+  ): Promise<OdooProduct[]> {
+    if (products.length === 0) return products;
+
+    // Collect all variant IDs from product_variant_id
+    const variantIds = products
+        .map((p) =>
+            p.product_variant_id && Array.isArray(p.product_variant_id)
+                ? p.product_variant_id[0]
+                : null,
+        )
+        .filter((id): id is number => id !== null);
+
+    if (variantIds.length === 0) return products;
+
+    try {
+      // Batch-fetch print_label for all variants at once
+      const variants = await callOdoo<any[]>({
+        model: "product.product",
+        method: "search_read",
+        args: [[["id", "in", variantIds]]],
+        kwargs: {
+          fields: ["id", "print_label"],
+          limit: variantIds.length,
+        },
+      });
+
+      // Build a lookup map: variantId -> print_label
+      const labelMap: Record<number, boolean> = {};
+      if (variants && variants.length > 0) {
+        variants.forEach((v) => {
+          labelMap[v.id] = !!v.print_label;
+        });
+      }
+
+      // Assign print_label back to each product
+      return products.map((p) => {
+        const vId =
+            p.product_variant_id && Array.isArray(p.product_variant_id)
+                ? p.product_variant_id[0]
+                : null;
+        if (vId !== null && labelMap[vId] !== undefined) {
+          return { ...p, print_label: labelMap[vId] };
+        }
+        return p;
+      });
+    } catch (e) {
+      console.warn("Error enriching products with print labels:", e);
+      return products;
+    }
+  },
+
   async getProducts(
     limit = 50,
     offset = 0,
@@ -624,7 +682,7 @@ export const OdooProductService = {
       domain.push(["barcode", "ilike", search]);
     }
 
-    return await callOdoo<OdooProduct[]>({
+    const products = await callOdoo<OdooProduct[]>({
       model: "product.template",
       method: "search_read",
       args: [domain],
@@ -635,6 +693,10 @@ export const OdooProductService = {
         order: "name asc",
       },
     });
+
+    // Enrich with print_label from product.product (variant)
+    return await this.enrichProductsWithPrintLabels(products);
+
   },
 
   async createProduct(data: Partial<OdooProduct>): Promise<number> {
@@ -760,6 +822,91 @@ export const OdooProductService = {
       model: "product.template",
       method: "write",
       args: [[id], { active: false }],
+    });
+  },
+
+  /**
+   * Fetches a single product.product variant by its ID, including swic_product
+   * label fields (print_label, last_label_price, last_label_date).
+   * These fields ONLY exist on product.product, NOT on product.template.
+   */
+  async getProductVariantById(variantId: number): Promise<{
+    print_label: boolean;
+    last_label_price: number;
+    last_label_date: string | false;
+  } | null> {
+    try {
+      const result = await callOdoo<any[]>({
+        model: "product.product",
+        method: "search_read",
+        args: [[["id", "=", variantId]]],
+        kwargs: {
+          fields: ["id", "print_label", "last_label_price", "last_label_date"],
+          limit: 1,
+        },
+      });
+      if (result && result.length > 0) {
+        return {
+          print_label: !!result[0].print_label,
+          last_label_price: result[0].last_label_price || 0,
+          last_label_date: result[0].last_label_date || false,
+        };
+      }
+      return null;
+    } catch (e) {
+      console.warn("Error fetching product variant label data:", e);
+      return null;
+    }
+  },
+
+  async adjustInventoryQty(variantId: number, qty: number): Promise<void> {
+    const quants = await callOdoo<any[]>({
+      model: "stock.quant",
+      method: "search_read",
+      args: [
+        [
+          ["product_id", "=", variantId],
+          ["location_id.usage", "=", "internal"],
+        ],
+      ],
+      kwargs: { fields: ["id"], limit: 1, order: "id asc" },
+    });
+
+    let quantId: number;
+
+    if (quants.length > 0) {
+      quantId = quants[0].id;
+      await callOdoo({
+        model: "stock.quant",
+        method: "write",
+        args: [[quantId], { inventory_quantity: qty }],
+      });
+    } else {
+      const locations = await callOdoo<any[]>({
+        model: "stock.location",
+        method: "search_read",
+        args: [[["usage", "=", "internal"]]],
+        kwargs: { fields: ["id"], limit: 1, order: "id asc" },
+      });
+      if (!locations.length)
+        throw new Error("No internal stock location found");
+      quantId = await callOdoo<number>({
+        model: "stock.quant",
+        method: "create",
+        args: [
+          {
+            product_id: variantId,
+            location_id: locations[0].id,
+            inventory_quantity: qty,
+          },
+        ],
+      });
+    }
+
+    await callOdoo({
+      model: "stock.quant",
+      method: "action_apply_inventory",
+      args: [[quantId]],
     });
   },
 };
