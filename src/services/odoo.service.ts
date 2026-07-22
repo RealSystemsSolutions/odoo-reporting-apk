@@ -13,8 +13,9 @@ function isSessionExpired(error: any): boolean {
   const message = error.data?.message ?? error.message;
   const name = error.data?.name;
   return (
-    name === 'odoo.http.SessionExpiredException' ||
-    (typeof message === 'string' && message.toLowerCase().includes('session expired'))
+    name === "odoo.http.SessionExpiredException" ||
+    (typeof message === "string" &&
+      message.toLowerCase().includes("session expired"))
   );
 }
 
@@ -46,7 +47,7 @@ export function getOdooClient(): AxiosInstance {
     _instance.interceptors.request.use((config) => {
       const sessionId = useAppStore.getState().user?.sessionId;
 
-      if (Platform.OS === 'web') {
+      /* if (Platform.OS === 'web') {
         const originalUrl = config.baseURL
           ? `${config.baseURL.replace(/\/$/, '')}${config.url}`
           : config.url;
@@ -69,7 +70,7 @@ export function getOdooClient(): AxiosInstance {
             config.url = `${config.url}${separator}session_id=${sessionId}`;
           }
         }
-      }
+      } */
 
       return config;
     });
@@ -88,7 +89,9 @@ export function getOdooClient(): AxiosInstance {
           if (isSessionExpired(odooError)) {
             handleSessionExpired();
           }
-          return Promise.reject(new Error(odooError.data?.message ?? odooError.message));
+          return Promise.reject(
+            new Error(odooError.data?.message ?? odooError.message),
+          );
         }
         return Promise.reject(err);
       },
@@ -617,18 +620,18 @@ export const OdooProductService = {
    * on the variant model, not on the template.
    */
   async enrichProductsWithPrintLabels(
-      products: OdooProduct[],
+    products: OdooProduct[],
   ): Promise<OdooProduct[]> {
     if (products.length === 0) return products;
 
     // Collect all variant IDs from product_variant_id
     const variantIds = products
-        .map((p) =>
-            p.product_variant_id && Array.isArray(p.product_variant_id)
-                ? p.product_variant_id[0]
-                : null,
-        )
-        .filter((id): id is number => id !== null);
+      .map((p) =>
+        p.product_variant_id && Array.isArray(p.product_variant_id)
+          ? p.product_variant_id[0]
+          : null,
+      )
+      .filter((id): id is number => id !== null);
 
     if (variantIds.length === 0) return products;
 
@@ -655,9 +658,9 @@ export const OdooProductService = {
       // Assign print_label back to each product
       return products.map((p) => {
         const vId =
-            p.product_variant_id && Array.isArray(p.product_variant_id)
-                ? p.product_variant_id[0]
-                : null;
+          p.product_variant_id && Array.isArray(p.product_variant_id)
+            ? p.product_variant_id[0]
+            : null;
         if (vId !== null && labelMap[vId] !== undefined) {
           return { ...p, print_label: labelMap[vId] };
         }
@@ -696,7 +699,6 @@ export const OdooProductService = {
 
     // Enrich with print_label from product.product (variant)
     return await this.enrichProductsWithPrintLabels(products);
-
   },
 
   async createProduct(data: Partial<OdooProduct>): Promise<number> {
@@ -726,7 +728,7 @@ export const OdooProductService = {
 
   async updateProductStock(
     productVariantId: number,
-    newQty: number
+    newQty: number,
   ): Promise<boolean> {
     try {
       let quantId = 0;
@@ -761,7 +763,9 @@ export const OdooProductService = {
         });
 
         if (!locations || locations.length === 0) {
-          throw new Error("No se encontró una ubicación interna para el stock.");
+          throw new Error(
+            "No se encontró una ubicación interna para el stock.",
+          );
         }
 
         const locationId = locations[0].id;
@@ -1681,8 +1685,7 @@ export const OdooPurchaseService = {
   async getKpis(): Promise<PurchaseKpis> {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const fmt = (d: Date) =>
-      d.toISOString().replace("T", " ").substring(0, 19);
+    const fmt = (d: Date) => d.toISOString().replace("T", " ").substring(0, 19);
 
     const [pendingResult, spendResult] = await Promise.all([
       callOdoo<any[]>({
@@ -1795,7 +1798,12 @@ export const OdooPurchaseService = {
     query: string,
     limit = 15,
   ): Promise<
-    Array<{ id: number; name: string; standard_price: number; uom_id: [number, string] | false }>
+    Array<{
+      id: number;
+      name: string;
+      standard_price: number;
+      uom_id: [number, string] | false;
+    }>
   > {
     const domain: any[] = [["active", "=", true]];
     if (query.trim()) {
@@ -1958,7 +1966,13 @@ export const OdooPurchaseService = {
       method: "search_read",
       args: [[["id", "in", ids]]],
       kwargs: {
-        fields: ["name", "state", "invoice_date", "amount_total", "payment_state"],
+        fields: [
+          "name",
+          "state",
+          "invoice_date",
+          "amount_total",
+          "payment_state",
+        ],
       },
     });
   },
@@ -2018,7 +2032,13 @@ export const OdooPurchaseService = {
       method: "search_read",
       args: [[["picking_id", "=", pickingId]]],
       kwargs: {
-        fields: ["product_id", "product_uom", "product_uom_qty", "quantity", "picking_id"],
+        fields: [
+          "product_id",
+          "product_uom",
+          "product_uom_qty",
+          "quantity",
+          "picking_id",
+        ],
       },
     });
   },
@@ -2031,7 +2051,7 @@ export const OdooPurchaseService = {
    */
   async validatePicking(
     pickingId: number,
-    lines: { id: number; qty_done: number }[]
+    lines: { id: number; qty_done: number }[],
   ): Promise<boolean> {
     try {
       // Step 1: batch-write quantity_done on all lines
