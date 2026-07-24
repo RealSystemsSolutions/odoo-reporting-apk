@@ -346,7 +346,10 @@ export default function ProductDetailsScreen() {
       if (submitData.is_storable === originalType.is_storable)
         delete submitData.is_storable;
     }
-
+    if (submitData.type === "service" || submitData.type === "combo") {
+      delete submitData.is_storable;
+      delete submitData.qty_available;
+    }
     // Extract IDs from Many2one fields
     if (Array.isArray(submitData.categ_id)) {
       submitData.categ_id = submitData.categ_id[0];
@@ -690,7 +693,7 @@ export default function ProductDetailsScreen() {
             Inventory and Codes
           </Text>
 
-          {!isNew && (
+          {!isNew && formData.is_storable && (
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textPrimary }]}>
                 On Hand Quantity
@@ -711,6 +714,9 @@ export default function ProductDetailsScreen() {
                 onChangeText={(text) => setQtyAvailable(Number(text) || 0)}
                 keyboardType="numeric"
                 placeholder="0"
+                readOnly={
+                  formData.type === "service" || formData.type === "combo"
+                }
                 placeholderTextColor={colors.textSecondary}
               />
               {qtyAvailable !== originalQty && (
@@ -788,10 +794,33 @@ export default function ProductDetailsScreen() {
               <TouchableOpacity
                 style={[
                   styles.segment,
-                  formData.type === "consu" &&
-                    formData.is_storable === true && {
-                      backgroundColor: colors.primary,
+                  formData.type === "combo" && {
+                    backgroundColor: colors.primary,
+                  },
+                ]}
+                onPress={() => {
+                  handleChange("type", "combo");
+                  handleChange("is_storable", false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    {
+                      color:
+                        formData.type === "combo" ? "#FFF" : colors.textPrimary,
                     },
+                  ]}
+                >
+                  Combo
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.segment,
+                  formData.type === "consu" && {
+                    backgroundColor: colors.primary,
+                  },
                 ]}
                 onPress={() => {
                   handleChange("type", "consu");
@@ -803,38 +832,7 @@ export default function ProductDetailsScreen() {
                     styles.segmentText,
                     {
                       color:
-                        formData.type === "consu" &&
-                        formData.is_storable === true
-                          ? "#FFF"
-                          : colors.textPrimary,
-                    },
-                  ]}
-                >
-                  Storable
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.segment,
-                  formData.type === "consu" &&
-                    formData.is_storable === false && {
-                      backgroundColor: colors.primary,
-                    },
-                ]}
-                onPress={() => {
-                  handleChange("type", "consu");
-                  handleChange("is_storable", false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    {
-                      color:
-                        formData.type === "consu" &&
-                        formData.is_storable === false
-                          ? "#FFF"
-                          : colors.textPrimary,
+                        formData.type === "consu" ? "#FFF" : colors.textPrimary,
                     },
                   ]}
                 >
@@ -868,6 +866,24 @@ export default function ProductDetailsScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {formData.type === "consu" && (
+              <View style={styles.switchRow}>
+                <Text
+                  style={[styles.label, { color: colors.textPrimary, flex: 1 }]}
+                >
+                  Track Inventory
+                </Text>
+                <Switch
+                  value={formData.is_storable ?? false}
+                  onValueChange={(val) => handleChange("is_storable", val)}
+                  trackColor={{
+                    false: colors.cardBorder,
+                    true: colors.primary,
+                  }}
+                />
+              </View>
+            )}
           </View>
         </View>
 
